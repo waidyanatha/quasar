@@ -2,6 +2,8 @@
 # -*- coding: UTF-8 -*-
 ''' DICTIONARY for defining station, channel, fault types and coding and data filter functions '''
 
+from obspy import read_inventory, UTCDateTime
+
 ''' All weak & strong motion, low gain, and mass possion sensor types '''
 class station_data():
 
@@ -11,7 +13,7 @@ class station_data():
             DICTIONARY for defining the data source (make connection) and global parameters
         '''
 #        import glob
-        from obspy import read_inventory, UTCDateTime
+#d        from obspy import read_inventory, UTCDateTime
 #        from obspy.clients.fdsn import Client
         #from datetime import date
 
@@ -120,6 +122,11 @@ class station_data():
         return st_list, invalid_st_list
 
     ''' GET WAVE FORMS '''
-    def get_station_waveform(self, client, station_code: str):
-        st_wf = client.get_waveforms("NZ", station_code,"*", "H??", self.t_start, self.t_end, attach_response=True)
+    def get_station_waveform(self, client, station_code, **kwargs):
+
+        StartTime = (kwargs["StartTime"] if kwargs["StartTime"]!=None else self.t_start)
+        EndTime = (kwargs["EndTime"] if kwargs["EndTime"]!=None else self.t_end)
+
+#        st_wf = client.get_waveforms("NZ", station_code,"*", "H??", self.t_start, self.t_end, attach_response=True)
+        st_wf = client.get_waveforms("NZ", station_code,"*", "H??", StartTime, EndTime, attach_response=True)
         return st_wf
