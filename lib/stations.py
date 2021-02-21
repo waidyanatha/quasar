@@ -1,6 +1,25 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
-''' DICTIONARY for defining station, channel, fault types and coding and data filter functions '''
+'''
+
+CLASS for defining station, channel, fault types and coding and data filter functions
+
+We make use of the International Federation Data of Seismic Networks (FDSN), the global standard
+and a [data service](http://www.fdsn.org/services/) for sharing seismic sensor wave form data.
+The Obspy librarires support FDSN. The list of resources and services that are used for retrieving station inventory and
+waveform data.
+
+* FSDN as Client data sources; both (i) the FDSN client service and the (ii) FDSN complient GoeNet API webservice
+* FDSN station service - retrieve station metadata information in a FDSN StationXML format or text format for all
+the channels in CECS station with no time limitations:
+https://service.geonet.org.nz/fdsnws/station/1/query?network=NZ&station=CECS&level=channel&format=text
+
+Prepare an array of tuples necessary and sufficient station data:
+* _station code_ as a unique identifier
+* _coordinates_ longitude & latitude
+* _elevation_ in meters above mean sea level
+
+'''
 
 from obspy import read_inventory, UTCDateTime
 
@@ -10,12 +29,8 @@ class station_data():
     def __init__(self, name: str = 'station_metadata'):
 
         '''
-            DICTIONARY for defining the data source (make connection) and global parameters
+            Define the data source to make the connection and set the local variables
         '''
-#        import glob
-#d        from obspy import read_inventory, UTCDateTime
-#        from obspy.clients.fdsn import Client
-        #from datetime import date
 
         self.name = name
 
