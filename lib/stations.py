@@ -37,7 +37,6 @@ class station_data():
         ''' Establish start and end time for retrieving waveform data '''
         self.t_start = UTCDateTime.now()-518400 #6 days ago = 60s x 60m x 24h x 6d
         self.t_end = UTCDateTime.now()+86400 #1 day in the future = 60s x 60m x 24h
-        print('Retrieving active stations with a \nstart-time: {} \n & end-time: {}'.format(self.t_start, self.t_end))
 
         st_test_data = ""     # TODO create a test set with corresponding faults
         ''' Use either or GeoNet station service webservice URL or Obspy FDSN Client protocol to retrieve station data '''
@@ -58,7 +57,7 @@ class station_data():
 
         try:
             client  = Client(self.s_fdsn_url_code)
-            print(client)
+#            print(client)
 
         except Exception as err:
             print("Error message: [get_client]", err)
@@ -107,7 +106,8 @@ class station_data():
         Prepare an array of station data: (i) station code as a unique identifier,
                                         (ii) coordinates longitude & latitude, and
                                         (iii) elevation in meters above mean sea level
-        return the construct as a list of stations including the list of invalid stations '''
+        return the construct as a list of stations including the list of invalid stations
+    '''
     def get_stations(self, client):
         st_list = []
         invalid_st_list = []
@@ -134,14 +134,15 @@ class station_data():
         except Exception as err:
             print("Error message: [get_stations]", err)
 
-        return st_list, invalid_st_list
+        return st_list, invalid_st_list, st_inv
 
-    ''' GET WAVE FORMS '''
+    ''' DEPRECATE -- GET WAVE FORMS '''
     def get_station_waveform(self, client, station_code, **kwargs):
 
         StartTime = (kwargs["StartTime"] if kwargs["StartTime"]!=None else self.t_start)
         EndTime = (kwargs["EndTime"] if kwargs["EndTime"]!=None else self.t_end)
 
 #        st_wf = client.get_waveforms("NZ", station_code,"*", "H??", self.t_start, self.t_end, attach_response=True)
-        st_wf = client.get_waveforms("NZ", station_code,"*", "H??", StartTime, EndTime, attach_response=True)
-        return st_wf
+#        st_wf = client.get_waveforms("NZ", station_code,"*", "H??", StartTime, EndTime, attach_response=True)
+#        return st_wf
+        return client.get_waveforms("NZ", station_code,"*", "H??", StartTime, EndTime, attach_response=True)
