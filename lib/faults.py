@@ -1,13 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[1]:
-
-
 '''
     CLASS of functions for offering various fault-line data filters, clensing, and structuring procedures
 '''
 class fault_data():
+
+    import numpy as np
 
     '''
         TODO at initiatlization download latest ZIP'd datasets from GeoNet then extract the *.json
