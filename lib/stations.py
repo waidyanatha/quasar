@@ -73,20 +73,20 @@ class station_data():
 
     ''' All combinations with definition of the first and second letter to define identify each station type '''
     def get_types(self):
-        dict_st_types = {"UH" : "Weak motion sensor, e.g. measuring velocity\nUltra Long Period sampled at 0.01Hz, or SOH sampled at 0.01Hz",
-                   "VH" : "Weak motion sensor, e.g. measuring velocity\nVery Long Period sampled at 0.1Hz, or SOH sampled at 0.1Hz",
-                   "LH" : "Weak motion sensor, e.g. measuring velocity\nBroad band sampled at 1Hz, or SOH sampled at 1Hz",
-                   "BH" : "Weak motion sensor, e.g. measuring velocity\nBroad band sampled at between 10 and 80 Hz, usually 10 or 50 Hz",
-                   "SH" : "Weak motion sensor, e.g. measuring velocity\nShort-period sampled at between 10 and 80 Hz, usually 50 Hz",
-                   "HH" : "Weak motion sensor, e.g. measuring velocity\nHigh Broad band sampled at or above 80Hz, generally 100 or 200 Hz",
-                   "EH" : "Weak motion sensor, e.g. measuring velocity\nExtremely Short-period sampled at or above 80Hz, generally 100 Hz",
-                   "UN" : "Strong motion sensor, e.g. measuring acceleration\nUltra Long Period sampled at 0.01Hz, or SOH sampled at 0.01Hz",
-                   "VN" : "Strong motion sensor, e.g. measuring acceleration\nVery Long Period sampled at 0.1Hz, or SOH sampled at 0.1Hz",
-                   "LN" : "Strong motion sensor, e.g. measuring acceleration\nBroad band sampled at 1Hz, or SOH sampled at 1Hz",
-                   "BN" : "Strong motion sensor, e.g. measuring acceleration\nBroad band sampled at between 10 and 80 Hz, usually 10 or 50 Hz",
-                   "SN" : "Strong motion sensor, e.g. measuring acceleration\nShort-period sampled at between 10 and 80 Hz, usually 50 Hz",
-                   "HN" : "Strong motion sensor, e.g. measuring acceleration\nHigh Broad band sampled at or above 80Hz, generally 100 or 200 Hz",
-                   "EN" : "Strong motion sensor, e.g. measuring acceleration\nExtremely Short-period sampled at or above 80Hz, generally 100 Hz"}
+        dict_st_types = {"UH" : "Weak motion sensor,\ne.g., measuring velocity\nUltra Long Period sampled\nat 0.01Hz, or SOH sampled at 0.01Hz",
+                   "VH" : "Weak motion sensor,\ne.g., measuring velocity\nVery Long Period sampled\nat 0.1Hz, or SOH sampled at 0.1Hz",
+                   "LH" : "Weak motion sensor,\ne.g., measuring velocity\nBroad band sampled\nat 1Hz, or SOH sampled at 1Hz",
+                   "BH" : "Weak motion sensor,\ne.g., measuring velocity\nBroad band sampled\nat between 10 and 80 Hz, usually 10 or 50 Hz",
+                   "SH" : "Weak motion sensor,\ne.g., measuring velocity\nShort-period sampled\nat between 10 and 80 Hz, usually 50 Hz",
+                   "HH" : "Weak motion sensor,\ne.g., measuring velocity\nHigh Broad band sampled\nat or above 80Hz,\ngenerally 100 or 200 Hz",
+                   "EH" : "Weak motion sensor,\ne.g., measuring velocity\nExtremely Short-period sampled\nat or above 80Hz, generally 100 Hz",
+                   "UN" : "Strong motion sensor,\ne.g., measuring acceleration\nUltra Long Period sampled\nat 0.01Hz, or SOH sampled at 0.01Hz",
+                   "VN" : "Strong motion sensor,\ne.g., measuring acceleration\nVery Long Period sampled\nat 0.1Hz, or SOH sampled at 0.1Hz",
+                   "LN" : "Strong motion sensor,\ne.g., measuring acceleration\nBroad band sampled\nat 1Hz, or SOH sampled at 1Hz",
+                   "BN" : "Strong motion sensor, e.g. measuring acceleration\nBroad band sampled\nat between 10 and 80 Hz, usually 10 or 50 Hz",
+                   "SN" : "Strong motion sensor,\ne.g., measuring acceleration\nShort-period sampled\nat between 10 and 80 Hz, usually 50 Hz",
+                   "HN" : "Strong motion sensor,\ne.g., measuring acceleration\nHigh Broad band sampled\nat or above 80Hz,\ngenerally 100 or 200 Hz",
+                   "EN" : "Strong motion sensor,\ne.g., measuring acceleration\nExtremely Short-period sampled\nat or above 80Hz, generally 100 Hz"}
         return dict_st_types
 
     ''' TODO Ranking of the station types by their EEW capacity and capabilities

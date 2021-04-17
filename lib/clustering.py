@@ -3,44 +3,190 @@
 '''
     CLASS for clustering of data, both spatial and temporal, functions necessary for the station-fault analysis
 '''
+
 class cluster_data():
 
-    def __init__(self, method="DBSCAN"):
-        self.method = method
+    def __init__(self, clustering_name="DBSCAN", **cluster_params):
+
         _default_distance = 50.0
+        _lst_metric = ['haversine','euclidean','manhattan','minkowski']
+        _lst_algo = ['auto', 'ball_tree', 'kd_tree', 'brute']
+        _lst_clust_method = ['xi','dbscan']
+
+        self.name = clustering_name
         self.epsilon=_default_distance/6371.0088
         self.minimum_samples = 3
-#        pass
+        self.cluster_std=0.4
+        self.n_clusters=5
+        self.random_state=0
+        self.maximum_iterations=300
+        self.centroid_init=5
+        self.algorithm='ball_tree'
+        self.metric='haversine'
+        self.cluster_method='xi'
+        self.fit_predict = True
+        self.gen_min_span_tree=True
+        self.prediction_data=True
+
+        try:
+            ''' Set the default paramters for the specific clustering method '''
+            if self.name not in ['DBSCAN','HDBSCAN','OPTICS','KMEANS']:
+                raise ValueError('%s is an undefined clustering_name. Must be DBSCAN,HDBSCAN,OPTICS,KMEANS' % self.name )
+
+            if 'distance_km' in cluster_params:
+                if isinstance(cluster_params["distance_km"],float) and cluster_params["distance_km"] > 0:
+                    self.epsilon=cluster_params["distance_km"]/6371.0088
+                else:
+                    raise ValueError('distance_km %s must be a float > 0.'
+                                     % str(cluster_params["distance_km"]))
+
+            if 'minimum_samples' in cluster_params:
+                if isinstance(cluster_params["minimum_samples"],int) and cluster_params["minimum_samples"] > 0:
+                    self.minimum_samples=cluster_params["minimum_samples"]
+                else:
+                    raise ValueError('minimum_samples %s must be an int > 0.'
+                                     % str(cluster_params["minimum_samples"]))
+
+            if 'max_iter' in cluster_params:
+                if isinstance(cluster_params["max_iter"],int) and cluster_params["max_iter"] > 0:
+                    self.maximum_iterations=cluster_params["max_iter"]
+                else:
+                    raise ValueError('minimum_samples %s must be an int > 0.'
+                                     % str(cluster_params["max_iter"]))
+
+            if 'random_state' in cluster_params:
+                if isinstance(cluster_params["random_state"],int) and cluster_params["random_state"] > 0:
+                    self.random_state=cluster_params["random_state"]
+                else:
+                    print('random_state')
+                    raise ValueError('minimum_samples %s must be an int > 0.'
+                                     % str(cluster_params["random_state"]))
+
+            if 'algorithm' in cluster_params:
+                if cluster_params["algorithm"] in _lst_algo:
+                    self.algorithm=cluster_params["algorithm"]
+                else:
+                    raise ValueError('algorithm {0} is invalid must be {1}. Continue with default value [{2}]'.
+                                     format(cluster_params["algorithm"],_lst_algo,self.algorithm))
+
+            if 'metric' in cluster_params:
+                if cluster_params["metric"] in _lst_metric:
+                    self.metric=cluster_params["metric"]
+                else:
+                    raise ValueError('metric {0} is invalid must be {1}. Continue with default value [{2}]'.
+                                     format(cluster_params["metric"],_lst_metric,self.metric))
+
+            if 'cluster_method' in cluster_params:
+                if cluster_params["cluster_method"] in _lst_clust_method:
+                    self.cluster_method=cluster_params["cluster_method"]
+                else:
+                    raise ValueError('cluster_method {0} is invalid must be {1}. Continue with default value [{2}]'.
+                                     format(cluster_params["cluster_method"],_lst_clust_method,self.cluster_method))
+            if 'n_clusters' in cluster_params:
+                if isinstance(cluster_params["n_clusters"],int) and cluster_params["n_clusters"] > 0:
+                    self.n_clusters=cluster_params["n_clusters"]
+                else:
+                    raise ValueError('n_clusters %s must be an int > 0.'
+                                     % str(cluster_params["n_clusters"]))
+
+            if 'fit_predict' in cluster_params:
+                if isinstance(cluster_params["fit_predict"],bool):
+                    self.fit_predict=cluster_params["fit_predict"]
+                else:
+                    raise ValueError('fit_predict %s is invalid must be a bool TRUE/FALSE.'
+                                     % str(cluster_params["fit_predict"]))
+
+        except Exception as err:
+            print("[cluster_data] Error message:", err)
 
     '''
-        TODO consider OPTICS (Ordering Points To Identify the Clustering Structure)
+        Get cluster labels for a given clustering method
     '''
-
-    '''
-        DBSCAN clustering - lat/lon pairs
-    '''
-    def get_dbscan_labels(self,st_arr, distance_km, minimum_samples):
+    def get_cluster_labels(self,st_arr):
 
         import numpy as np
-        from sklearn.cluster import DBSCAN
-#        from sklearn import metrics
+        from sklearn.cluster import DBSCAN, KMeans, OPTICS
+        import hdbscan
         import sklearn.utils
         from sklearn.preprocessing import StandardScaler
         from sklearn.datasets import make_blobs
 
-        if isinstance(distance_km, float):
-            self.epsilon = distance_km/6371.0088
-        if isinstance(minimum_samples, int) and minimum_samples > 0:
-            self.minimum_samples = minimum_samples
+        if self.name == 'DBSCAN':
+            clusterer = DBSCAN(eps=self.epsilon,
+                               min_samples=self.minimum_samples,
+                               algorithm=self.algorithm,
+                               metric=self.metric)
+        elif self.name == 'HDBSCAN':
+            clusterer = hdbscan.HDBSCAN(min_cluster_size=self.minimum_samples,
+                                        cluster_selection_epsilon = self.epsilon,
+                                        metric=self.metric,
+                                        gen_min_span_tree=True,
+                                        prediction_data=True)
+        elif self.name == 'OPTICS':
+            clusterer = OPTICS(min_samples=self.minimum_samples,
+                               metric=self.metric,
+                               cluster_method=self.cluster_method,
+                               algorithm=self.algorithm)
+        elif self.name == 'KMEANS':
+            scaler = StandardScaler()
+            scaled_features = scaler.fit_transform(st_arr)
+            ''' init="random" or "k-means++"
+                n_init=10 (Number of runs with different centroid seeds)
+                max_iter=300 (Maximum number of iterations for a single run)
+                random_state=5 (Determines random number generation for centroid initialization)
+            '''
+            clusterer = KMeans(init='k-means++',
+                               n_clusters=self.n_clusters,
+                               n_init=self.centroid_init,
+                               max_iter=self.maximum_iterations,
+                               random_state=self.random_state)
+        elif self.name == 'KMEANS':
+            print('TBD')
+
+        else:
+            print("something was not right")
+
+        X, _labels_true = make_blobs(n_samples=len(st_arr),
+                                    centers=st_arr,
+                                    cluster_std=self.cluster_std,
+                                    random_state=self.random_state)
+
+        if self.fit_predict:
+            clusterer.fit_predict(np.radians(st_arr))
+        else:
+            clusterer.fit(np.radians(st_arr))
+
+#        _core_samples_mask = np.zeros_like(clusterer.labels_, dtype=bool)
+#        _core_samples_mask[clusterer.core_sample_indices_] = True
+
+        print(clusterer)
+
+        return clusterer.labels_, _labels_true #, _core_samples_mask
+
+
+    '''
+        DBSCAN clustering - lat/lon pairs
+    '''
+    def get_dbscan_labels(self,st_arr):
+
+        import numpy as np
+        from sklearn.cluster import DBSCAN
+        import sklearn.utils
+        from sklearn.datasets import make_blobs
 
         err="0"
     #    try:
-        X, labels_true = make_blobs(n_samples=len(st_arr), centers=st_arr, cluster_std=0.4,random_state=0)
+        X, labels_true = make_blobs(n_samples=len(st_arr),
+                                    centers=st_arr,
+                                    cluster_std=self.cluster_std,
+                                    random_state=self.random_state)
         db = DBSCAN(eps=self.epsilon,
-                    min_samples=minimum_samples,
-                    algorithm='ball_tree',
-                    metric='haversine').fit(np.radians(X))
-        print('DBSCAN epsilon:',db.eps,'algorithm:', db.algorithm, 'metric: ', db.metric)
+                    min_samples=self.minimum_samples,
+                    algorithm=self.algorithm,
+                    metric=self.metric)
+        db.fit(np.radians(X))
+        print(db)
+
         core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
         core_samples_mask[db.core_sample_indices_] = True
         labels = db.labels_
