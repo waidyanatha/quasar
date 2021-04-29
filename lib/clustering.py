@@ -9,6 +9,7 @@ class cluster_data():
     def __init__(self, clustering_name="DBSCAN", **cluster_params):
 
         _default_distance = 50.0
+        _cluster_method_name = ['DBSCAN','HDBSCAN','OPTICS','MEANSHIFT','KMEANS','KNN', 'DENCLUE']
         _lst_metric = ['haversine','euclidean','manhattan','minkowski']
         _lst_algo = ['auto', 'ball_tree', 'kd_tree', 'brute']
         _lst_clust_method = ['xi','dbscan']
@@ -30,8 +31,8 @@ class cluster_data():
 
         try:
             ''' Set the default paramters for the specific clustering method '''
-            if self.name not in ['DBSCAN','HDBSCAN','OPTICS','KMEANS']:
-                raise ValueError('%s is an undefined clustering_name. Must be DBSCAN,HDBSCAN,OPTICS,KMEANS' % self.name )
+            if self.name not in _cluster_method_name:
+                raise ValueError('{0} is an undefined clustering_name. Must be {1}'.format(self.name,_cluster_method_name))
 
             if 'distance_km' in cluster_params:
                 if isinstance(cluster_params["distance_km"],float) and cluster_params["distance_km"] > 0:
@@ -102,14 +103,18 @@ class cluster_data():
     '''
         Get cluster labels for a given clustering method
     '''
-    def get_cluster_labels(self,st_arr):
+    def get_clusters(self,st_arr):
 
         import numpy as np
-        from sklearn.cluster import DBSCAN, KMeans, OPTICS
+        from sklearn.cluster import DBSCAN, KMeans, OPTICS, MeanShift
         import hdbscan
-        import sklearn.utils
+#        import sklearn.utils
         from sklearn.preprocessing import StandardScaler
         from sklearn.datasets import make_blobs
+        import sys
+        sys.path.insert(1, '../lib')
+        import denclue
+
 
         if self.name == 'DBSCAN':
             clusterer = DBSCAN(eps=self.epsilon,
@@ -127,6 +132,9 @@ class cluster_data():
                                metric=self.metric,
                                cluster_method=self.cluster_method,
                                algorithm=self.algorithm)
+        elif self.name == 'MEANSHIFT':
+            clusterer = MeanShift()
+
         elif self.name == 'KMEANS':
             scaler = StandardScaler()
             scaled_features = scaler.fit_transform(st_arr)
@@ -140,8 +148,17 @@ class cluster_data():
                                n_init=self.centroid_init,
                                max_iter=self.maximum_iterations,
                                random_state=self.random_state)
-        elif self.name == 'KMEANS':
+        elif self.name == 'KNN':
             print('TBD')
+
+        elif self.name == 'DENCLUE':
+            clusterer = denclue.DENCLUE(h=None,
+                                        eps=self.epsilon,
+                                        min_density=0.,
+                                        metric=self.metric)
+            if self.fit_predict:
+                print('WARNING DENCLUE does does not have a fit_predict function. Switching to fit')
+                self.fit_predict = False
 
         else:
             print("something was not right")
@@ -161,43 +178,27 @@ class cluster_data():
 
         print(clusterer)
 
-        return clusterer.labels_, _labels_true #, _core_samples_mask
+        cluster_centers = self.get_cluster_centers(self.name,clusterer)
 
+        return clusterer.labels_, _labels_true, cluster_centers #, _core_samples_mask
 
     '''
-        DBSCAN clustering - lat/lon pairs
+        Get Cluster Centers
     '''
-    def get_dbscan_labels(self,st_arr):
+    def get_cluster_centers(self,name,clusters):
 
-        import numpy as np
-        from sklearn.cluster import DBSCAN
-        import sklearn.utils
-        from sklearn.datasets import make_blobs
-
-        err="0"
-    #    try:
-        X, labels_true = make_blobs(n_samples=len(st_arr),
-                                    centers=st_arr,
-                                    cluster_std=self.cluster_std,
-                                    random_state=self.random_state)
-        db = DBSCAN(eps=self.epsilon,
-                    min_samples=self.minimum_samples,
-                    algorithm=self.algorithm,
-                    metric=self.metric)
-        db.fit(np.radians(X))
-        print(db)
-
-        core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
-        core_samples_mask[db.core_sample_indices_] = True
-        labels = db.labels_
-#        print("DBSCAN found %0.3f labels" % labels )
-    #    except Exception as err:
-    #        print("Error message:", err)
-    #        labels = ""
-        return db.labels_, labels_true, core_samples_mask
+        if name == 'DBSCAN':
+            return None
+        elif name == 'MEANSHIFT':
+            return clusters.cluster_centers_
+        elif name == 'DENCLUE':
+            return clusters.clust_info_[0]['centroid']
+        else:
+            return None
 
     '''
         K nearest neigbour clustering
+        Used in STATION FAULT clustering
     '''
     def get_nn_labels(self,st_flt_list):
 
