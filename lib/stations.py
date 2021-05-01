@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: UTF-8 -*-
+
+## filename ./lib/station.py
+
 '''
 
 CLASS for defining station, channel, fault types and coding and data filter functions
@@ -56,24 +59,24 @@ class station_data():
         from obspy.clients.fdsn import Client
 
         try:
-            client  = Client(self.s_fdsn_url_code)
+            client_  = Client(self.s_fdsn_url_code)
 #            print(client)
 
         except Exception as err:
             print("Error message: [get_client]", err)
 
-        return client
+        return client_
 
     ''' Define channel codes '''
     def get_channels(self):
 
-        channels = "UH*,VH*,LH*,BH*,SH*,HH*,EH*,UN*,VN*,LN*,BN*,SN*,HN*,EN*"
+        channels_ = "UH*,VH*,LH*,BH*,SH*,HH*,EH*,UN*,VN*,LN*,BN*,SN*,HN*,EN*"
 
-        return channels
+        return channels_
 
     ''' All combinations with definition of the first and second letter to define identify each station type '''
     def get_types(self):
-        dict_st_types = {"UH" : "Weak motion sensor,\ne.g., measuring velocity\nUltra Long Period sampled\nat 0.01Hz, or SOH sampled at 0.01Hz",
+        dict_st_types_ = {"UH" : "Weak motion sensor,\ne.g., measuring velocity\nUltra Long Period sampled\nat 0.01Hz, or SOH sampled at 0.01Hz",
                    "VH" : "Weak motion sensor,\ne.g., measuring velocity\nVery Long Period sampled\nat 0.1Hz, or SOH sampled at 0.1Hz",
                    "LH" : "Weak motion sensor,\ne.g., measuring velocity\nBroad band sampled\nat 1Hz, or SOH sampled at 1Hz",
                    "BH" : "Weak motion sensor,\ne.g., measuring velocity\nBroad band sampled\nat between 10 and 80 Hz, usually 10 or 50 Hz",
@@ -87,20 +90,20 @@ class station_data():
                    "SN" : "Strong motion sensor,\ne.g., measuring acceleration\nShort-period sampled\nat between 10 and 80 Hz, usually 50 Hz",
                    "HN" : "Strong motion sensor,\ne.g., measuring acceleration\nHigh Broad band sampled\nat or above 80Hz,\ngenerally 100 or 200 Hz",
                    "EN" : "Strong motion sensor,\ne.g., measuring acceleration\nExtremely Short-period sampled\nat or above 80Hz, generally 100 Hz"}
-        return dict_st_types
+        return dict_st_types_
 
     ''' TODO Ranking of the station types by their EEW capacity and capabilities
         currently simply enumerating them for testing '''
     def get_st_type_rank(self):
 
-        l_enum_st_types = []
+        l_enum_st_types_ = []
         try:
             for idx_st_type, val_st_type in enumerate(list(self.get_types())):
-                l_enum_st_types.append([idx_st_type, val_st_type])
+                l_enum_st_types_.append([idx_st_type, val_st_type])
         except Exception as err:
             print("Error message: [get_st_type_rank]", err)
             sys.exit(1)
-        return l_enum_st_types
+        return l_enum_st_types_
 
     '''
         Prepare an array of station data: (i) station code as a unique identifier,
@@ -109,32 +112,32 @@ class station_data():
         return the construct as a list of stations including the list of invalid stations
     '''
     def get_stations(self, client):
-        st_list = []
-        invalid_st_list = []
+        st_list_ = []
+        invalid_st_list_ = []
 
         try:
-            st_inv = client.get_stations(network='NZ', location="1?,2?", station='*', channel=self.get_channels(), level='channel', starttime=self.t_start, endtime = self.t_end)
+            st_inv_ = client.get_stations(network='NZ', location="1?,2?", station='*', channel=self.get_channels(), level='channel', starttime=self.t_start, endtime = self.t_end)
         except Exception as err:
             print("Error message: [get_stations]", err)
 
         '''run through stations to parse code, type, and location'''
         try:
-            for each_st in range(len(st_inv[0].stations)):
+            for each_st in range(len(st_inv_[0].stations)):
                 ''' use lat/lon paris only in and around NZ remove all others '''
-                if(st_inv[0].stations[each_st].latitude < 0 and st_inv[0].stations[each_st].longitude > 0):
-                    each_st_type_dict = st_inv[0].stations[each_st].get_contents()
+                if(st_inv_[0].stations[each_st].latitude < 0 and st_inv_[0].stations[each_st].longitude > 0):
+                    each_st_type_dict = st_inv_[0].stations[each_st].get_contents()
                     ''' get the second character representing the station type '''
 #                    st_type_dict["st_type"].append(each_st_type_dict["channels"][0][-3:-1])
                     ''' list of corresponding station locations (lat / lon) '''
-                    st_list.append([st_inv[0].stations[each_st].code, each_st_type_dict["channels"][0][-3:-1], st_inv[0][each_st].latitude, st_inv[0][each_st].longitude])
+                    st_list_.append([st_inv_[0].stations[each_st].code, each_st_type_dict["channels"][0][-3:-1], st_inv_[0][each_st].latitude, st_inv_[0][each_st].longitude])
                 else:
                     ''' dictionary of all stations not in NZ visinity '''
-                    invalid_st_list.append([st_inv[0].stations[each_st].code,st_inv[0][each_st].latitude, st_inv[0][each_st].longitude])
+                    invalid_st_list_.append([st_inv_[0].stations[each_st].code,st_inv_[0][each_st].latitude, st_inv_[0][each_st].longitude])
 
         except Exception as err:
             print("Error message: [get_stations]", err)
 
-        return st_list, invalid_st_list, st_inv
+        return st_list_, invalid_st_list_, st_inv_
 
     ''' DEPRECATE -- GET WAVE FORMS '''
     def get_station_waveform(self, client, station_code, **kwargs):
