@@ -9,7 +9,15 @@ class cluster_data():
     def __init__(self, clustering_name="DBSCAN", **cluster_params):
 
         _default_distance = 50.0
-        _cluster_method_name = ['DBSCAN','HDBSCAN','OPTICS','MEANSHIFT','KMEANS','KNN', 'DENCLUE']
+        _cluster_method_name = ['DBSCAN',
+                                'HDBSCAN',
+                                'AFFINITYPROPAGATION',
+                                'OPTICS',
+                                'MEANSHIFT',
+                                'AGGLOMERATIVE',
+                                'KMEANS',
+                                'KNN',
+                                'DENCLUE']
         _lst_metric = ['haversine','euclidean','manhattan','minkowski']
         _lst_algo = ['auto', 'ball_tree', 'kd_tree', 'brute']
         _lst_clust_method = ['xi','dbscan']
@@ -20,7 +28,7 @@ class cluster_data():
         self.cluster_std=0.4
         self.n_clusters=5
         self.random_state=0
-        self.maximum_iterations=300
+        self.maximum_iterations=200
         self.centroid_init=5
         self.algorithm='ball_tree'
         self.metric='haversine'
@@ -106,7 +114,7 @@ class cluster_data():
     def get_clusters(self,st_arr):
 
         import numpy as np
-        from sklearn.cluster import DBSCAN, KMeans, OPTICS, MeanShift
+        from sklearn.cluster import DBSCAN, KMeans, AffinityPropagation, OPTICS, MeanShift, AgglomerativeClustering
         import hdbscan
 #        import sklearn.utils
         from sklearn.preprocessing import StandardScaler
@@ -127,13 +135,25 @@ class cluster_data():
                                         metric=self.metric,
                                         gen_min_span_tree=True,
                                         prediction_data=True)
+        elif self.name == 'AFFINITYPROPAGATION':
+            clusterer = AffinityPropagation(damping=0.5,
+                                            max_iter = self.maximum_iterations,
+                                            convergence_iter=15,
+                                            preference=None,
+                                            affinity=self.metric
+                                           )
+
         elif self.name == 'OPTICS':
             clusterer = OPTICS(min_samples=self.minimum_samples,
                                metric=self.metric,
                                cluster_method=self.cluster_method,
                                algorithm=self.algorithm)
+
         elif self.name == 'MEANSHIFT':
             clusterer = MeanShift()
+
+        elif self.name == 'AGGLOMERATIVE':
+            clusterer = AgglomerativeClustering()
 
         elif self.name == 'KMEANS':
             scaler = StandardScaler()
@@ -185,14 +205,16 @@ class cluster_data():
     '''
         Get Cluster Centers
     '''
-    def get_cluster_centers(self,name,clusters):
+    def get_cluster_centers(self,name,clusterer):
 
         if name == 'DBSCAN':
             return None
+        elif name == 'AFFINITYPROPAGATION':
+            return clusterer.cluster_centers_
         elif name == 'MEANSHIFT':
-            return clusters.cluster_centers_
+            return clusterer.cluster_centers_
         elif name == 'DENCLUE':
-            return clusters.clust_info_[0]['centroid']
+            return clusterer.clust_info_[0]['centroid']
         else:
             return None
 
@@ -240,10 +262,13 @@ class cluster_data():
     '''
     def get_kmean_labels(self, st_flt_arr, n_clusters=5):
 
+        ''' TODO: enhance to mimumum observation constrained clustering to provide minimum_samples
+            https://stackoverflow.com/questions/55930406/how-to-set-a-minimum-number-of-observations-per-clusters-in-k-means-clustering
+        '''
         from sklearn.cluster import KMeans
 #        import sklearn.utils
         from sklearn.preprocessing import StandardScaler
-        from sklearn.datasets import make_blobs
+#        from sklearn.datasets import make_blobs
         import numpy as np
 
         ''' make station-faults blob with shape of X being 6 features and len(st-flt-arr) '''
