@@ -15,16 +15,33 @@ class cluster_data():
                                 'OPTICS',
                                 'MEANSHIFT',
                                 'AGGLOMERATIVE',
+                                'BIRCH',
                                 'KMEANS',
                                 'KNN',
                                 'DENCLUE']
         _lst_metric = ['haversine','euclidean','manhattan','minkowski']
-        _lst_algo = ['auto', 'ball_tree', 'kd_tree', 'brute']
-        _lst_clust_method = ['xi','dbscan']
+
+        ''' algorithms that can be used along with DBSCAN and HDBSCAN
+            algorithm = 'auto' for DBSCAN and algorithm = 'best' for HDBSCAN selects the optimal
+            algorithm based on the nature of the data
+        '''
+        _lst_algo = ['auto',          # Automatically select best algorith for DBSCAN and OPTICS
+                     'ball_tree',
+                     'kd_tree',
+                     'brute',
+                     'best',          # Automatically select best algorithm for HDBSCAN
+                     'generic',
+                     'prims_kdtree',
+                     'prims_balltree',
+                     'boruvka_kdtree',
+                     'boruvka_balltree'
+                    ]
+        _lst_clust_method = ['xi','dbscan','eom','leaf']
 
         self.name = clustering_name
         self.epsilon=_default_distance/6371.0088
         self.minimum_samples = 3
+        self.minimum_cluster_size = 1
         self.cluster_std=0.4
         self.n_clusters=5
         self.random_state=0
@@ -55,6 +72,13 @@ class cluster_data():
                 else:
                     raise ValueError('minimum_samples %s must be an int > 0.'
                                      % str(cluster_params["minimum_samples"]))
+
+            if 'minimum_cluster_size' in cluster_params:
+                if isinstance(cluster_params["minimum_cluster_size"],int) and cluster_params["minimum_cluster_size"] > 0:
+                    self.minimum_cluster_size=cluster_params["minimum_cluster_size"]
+                else:
+                    raise ValueError('minimum_samples %s must be an int > 0.'
+                                     % str(cluster_params["minimum_cluster_size"]))
 
             if 'max_iter' in cluster_params:
                 if isinstance(cluster_params["max_iter"],int) and cluster_params["max_iter"] > 0:
@@ -114,93 +138,116 @@ class cluster_data():
     def get_clusters(self,st_arr):
 
         import numpy as np
-        from sklearn.cluster import DBSCAN, KMeans, AffinityPropagation, OPTICS, MeanShift, AgglomerativeClustering
+        from sklearn.cluster import DBSCAN,KMeans,AffinityPropagation,OPTICS,MeanShift,AgglomerativeClustering,Birch
         import hdbscan
 #        import sklearn.utils
         from sklearn.preprocessing import StandardScaler
         from sklearn.datasets import make_blobs
-        import sys
-        sys.path.insert(1, '../lib')
-        import denclue
+        from sklearn.metrics.pairwise import haversine_distances
+        import sys; sys.path.insert(1, '../lib')
+        import denclue, GDT.api, GDT.plot_tools
+
+        try:
+            if self.name == 'DBSCAN':
+                clusterer = DBSCAN(eps=self.epsilon,
+                                   min_samples=self.minimum_samples,
+                                   algorithm=self.algorithm,
+                                   metric=self.metric)
+
+            elif self.name == 'HDBSCAN':
+                clusterer = hdbscan.HDBSCAN(min_cluster_size=self.minimum_cluster_size,
+                                            min_samples = self.minimum_samples,
+                                            cluster_selection_epsilon = self.epsilon,
+                                            metric=self.metric,
+                                            cluster_selection_method=self.cluster_method,
+                                            gen_min_span_tree=True,
+                                            prediction_data=True)
+
+            elif self.name == 'AFFINITYPROPAGATION':
+                if self.metric in ['haversine']:
+                    precomputed = haversine_distances(np.radians(st_arr[:,0]),np.radians(st_arr[:,1]))
+                    st_arr = precomputed
+                    clusterer = AffinityPropagation(affinity='precomputed')
+                elif self.metric in ['euclidean']:
+                    clusterer = AffinityPropagation(affinity=self.metric,
+                                                    damping=0.5,
+                                                    max_iter = self.maximum_iterations,
+                                                    convergence_iter=15,
+                                                    preference=None,
+                                                   )
+                else:
+                    raise ValueError('Invalid metric %s . Must be euclidean or havesine' % self.metric)
 
 
-        if self.name == 'DBSCAN':
-            clusterer = DBSCAN(eps=self.epsilon,
-                               min_samples=self.minimum_samples,
-                               algorithm=self.algorithm,
-                               metric=self.metric)
-        elif self.name == 'HDBSCAN':
-            clusterer = hdbscan.HDBSCAN(min_cluster_size=self.minimum_samples,
-                                        cluster_selection_epsilon = self.epsilon,
-                                        metric=self.metric,
-                                        gen_min_span_tree=True,
-                                        prediction_data=True)
-        elif self.name == 'AFFINITYPROPAGATION':
-            clusterer = AffinityPropagation(damping=0.5,
-                                            max_iter = self.maximum_iterations,
-                                            convergence_iter=15,
-                                            preference=None,
-                                            affinity=self.metric
-                                           )
+            elif self.name == 'OPTICS':
+                clusterer = OPTICS(min_cluster_size=self.minimum_cluster_size,
+                                   min_samples=self.minimum_samples,
+                                   max_eps = self.epsilon,
+                                   eps = self.epsilon,
+                                   metric=self.metric,
+                                   cluster_method=self.cluster_method,
+                                   algorithm=self.algorithm)
 
-        elif self.name == 'OPTICS':
-            clusterer = OPTICS(min_samples=self.minimum_samples,
-                               metric=self.metric,
-                               cluster_method=self.cluster_method,
-                               algorithm=self.algorithm)
+            elif self.name == 'AGGLOMERATIVE':
+                clusterer = AgglomerativeClustering(distance_threshold=self.epsilon,
+                                                   n_clusters=None)
 
-        elif self.name == 'MEANSHIFT':
-            clusterer = MeanShift()
+            elif self.name == 'DENCLUE':
+                clusterer = denclue.DENCLUE(h=None,
+                                            eps=self.epsilon,
+                                            min_density=self.minimum_cluster_size,
+                                            metric=self.metric)
+                if self.fit_predict:
+                    print('WARNING DENCLUE does does not have a fit_predict function. Switching to fit')
+                    self.fit_predict = False
 
-        elif self.name == 'AGGLOMERATIVE':
-            clusterer = AgglomerativeClustering()
+            elif self.name == 'BIRCH':
+                clusterer = Birch(n_clusters=None, threshold=self.epsilon)
 
-        elif self.name == 'KMEANS':
-            scaler = StandardScaler()
-            scaled_features = scaler.fit_transform(st_arr)
-            ''' init="random" or "k-means++"
-                n_init=10 (Number of runs with different centroid seeds)
-                max_iter=300 (Maximum number of iterations for a single run)
-                random_state=5 (Determines random number generation for centroid initialization)
-            '''
-            clusterer = KMeans(init='k-means++',
-                               n_clusters=self.n_clusters,
-                               n_init=self.centroid_init,
-                               max_iter=self.maximum_iterations,
-                               random_state=self.random_state)
-        elif self.name == 'KNN':
-            print('TBD')
+            elif self.name == 'MEANSHIFT':
+                clusterer = MeanShift()
 
-        elif self.name == 'DENCLUE':
-            clusterer = denclue.DENCLUE(h=None,
-                                        eps=self.epsilon,
-                                        min_density=0.,
-                                        metric=self.metric)
+            elif self.name == 'KMEANS':
+                scaler = StandardScaler()
+                scaled_features = scaler.fit_transform(st_arr)
+                ''' init="random" or "k-means++"
+                    n_init=10 (Number of runs with different centroid seeds)
+                    max_iter=300 (Maximum number of iterations for a single run)
+                    random_state=5 (Determines random number generation for centroid initialization)
+                '''
+                clusterer = KMeans(init='k-means++',
+                                   n_clusters=self.n_clusters,
+                                   n_init=self.centroid_init,
+                                   max_iter=self.maximum_iterations,
+                                   random_state=self.random_state)
+
+            elif self.name == 'KNN':
+                print('TBD')
+
+            else:
+                print("something was not right")
+
+            X, _labels_true = make_blobs(n_samples=len(st_arr),
+                                        centers=st_arr,
+                                        cluster_std=self.cluster_std,
+                                        random_state=self.random_state)
+
             if self.fit_predict:
-                print('WARNING DENCLUE does does not have a fit_predict function. Switching to fit')
-                self.fit_predict = False
-
-        else:
-            print("something was not right")
-
-        X, _labels_true = make_blobs(n_samples=len(st_arr),
-                                    centers=st_arr,
-                                    cluster_std=self.cluster_std,
-                                    random_state=self.random_state)
-
-        if self.fit_predict:
-            clusterer.fit_predict(np.radians(st_arr))
-        else:
-            clusterer.fit(np.radians(st_arr))
+                clusterer.fit_predict(np.radians(st_arr))
+            else:
+                clusterer.fit(np.radians(st_arr))
 
 #        _core_samples_mask = np.zeros_like(clusterer.labels_, dtype=bool)
 #        _core_samples_mask[clusterer.core_sample_indices_] = True
 
-        print(clusterer)
+            print(clusterer)
 
-        cluster_centers = self.get_cluster_centers(self.name,clusterer)
+            cluster_centers = self.get_cluster_centers(self.name,clusterer)
 
-        return clusterer.labels_, _labels_true, cluster_centers #, _core_samples_mask
+            return clusterer.labels_, _labels_true, cluster_centers #, _core_samples_mask
+
+        except Exception as err:
+            print("[get_clusters] Error message:", err)
 
     '''
         Get Cluster Centers
