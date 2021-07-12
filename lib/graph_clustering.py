@@ -8,14 +8,24 @@ class community_detection():
 
     def __init__(self, clustering_name="greedy_modularity_communities", **cluster_params):
 
+        import numpy as np
+
         _default_distance = 50.0
         _cluster_method_name = ['asyn_lpa_communities',
+                                'label_propagation_communities',
                                 'greedy_modularity_communities',
-                                'label_propagation_communities']
+                                '_naive_greedy_modularity_communities',
+                                'lukes_partitioning',
+                                'asyn_fluidc',
+                                'girvan_newman'
+                                ]
 
         self.name=clustering_name
         self.max_distance=_default_distance
         self.epsilon=_default_distance/6371.0088
+        self.seed=None
+        self.weight='distance'
+        self.maximum_node_weight=20
 
         try:
             ''' Set the default paramters for the specific clustering method '''
@@ -31,8 +41,25 @@ class community_detection():
                     raise ValueError('distance_km %s must be a float > 0.'
                                      % str(cluster_params["distance_km"]))
 
+            if 'seed' in cluster_params:
+                if (
+                    isinstance(cluster_params["seed"],int) or
+                    isinstance(cluster_params["seed"], np.random) or     #fix this check it's not working
+                    cluster_params["seed"] == None):
+                    self.seed=cluster_params["seed"]
+                else:
+                    raise ValueError('seed parameter %s must be {int, np.random, None}.'
+                                     % str(cluster_params["seed"]))
+
+            if 'weight' in cluster_params:
+                if (cluster_params["weight"] == 'distance'):
+                    self.weight=cluster_params["weight"]
+                else:
+                    raise ValueError('seed parameter %s must be {int, np.random, None}.'
+                                     % str(cluster_params["seed"]))
+
         except Exception as err:
-            print("[cluster_data] Error message:", err)
+            print("[class community_detection __init__()] Error message:", err)
 
     def get_communities(self,st_arr):
 
@@ -47,15 +74,34 @@ class community_detection():
             if self.name == 'asyn_lpa_communities':
                 g_communities_ = list(nx_comm.asyn_lpa_communities(
                     g_simple_,
-                    weight='distance',
-                    seed=1))
+                    weight=self.weight,
+                    seed=self.seed))
+
+            elif self.name == 'label_propagation_communities':
+                g_communities_ = list(nx_comm.label_propagation_communities(
+                    g_simple_))
 
             elif self.name == 'greedy_modularity_communities':
                 g_communities_ = list(nx_comm.greedy_modularity_communities(
                     g_simple_))
 
-            elif self.name == 'label_propagation_communities':
-                g_communities_ = list(nx_comm.label_propagation_communities(
+            elif self.name == '_naive_greedy_modularity_communities':
+                g_communities_ = list(nx_comm._naive_greedy_modularity_communities(
+                    g_simple_))
+
+            elif self.name == 'lukes_partitioning':
+                g_communities_ = list(nx_comm.lukes_partitioning(
+                    g_simple_, edge_weight=self.weight, max_size=self.maximum_node_weight))
+
+            elif self.name == 'asyn_fluidc':
+                g_communities_ = list(nx_comm.asyn_fluidc(
+                    g_simple_,
+                    k=15,
+                    max_iter=300,
+                    seed=self.seed))
+
+            elif self.name == 'girvan_newman':
+                g_communities_ = list(nx_comm.girvan_newman(
                     g_simple_))
 
             else:
