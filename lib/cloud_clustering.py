@@ -39,6 +39,7 @@ class cluster_data():
         _lst_clust_method = ['xi','dbscan','eom','leaf']
 
         self.name = clustering_name
+        self.max_distance=_default_distance
         self.epsilon=_default_distance/6371.0088
         self.minimum_samples = 3
         self.minimum_cluster_size = 1
@@ -62,6 +63,7 @@ class cluster_data():
             if 'distance_km' in cluster_params:
                 if isinstance(cluster_params["distance_km"],float) and cluster_params["distance_km"] > 0:
                     self.epsilon=cluster_params["distance_km"]/6371.0088
+                    self.max_distance=cluster_params["distance_km"]
                 else:
                     raise ValueError('distance_km %s must be a float > 0.'
                                      % str(cluster_params["distance_km"]))
@@ -341,3 +343,61 @@ class cluster_data():
 #        return labels, labels_true, core_samples_mask
 #        return labels, labels_true, kmeans.cluster_centers_, scaled_features, y_kmeans
         return kmeans.labels_, kmeans.cluster_centers_, scaled_features, y_kmeans
+
+    ''' Create a graph for each cluster
+        return networkx graph object
+    '''
+    def get_simple_graph(self,st_cluster_df):
+
+        import numpy as np
+        import networkx as nx
+        from sklearn.metrics.pairwise import haversine_distances
+
+        st_cluster_df.reset_index(drop=True, inplace=True)
+        clust_lbl = int(st_cluster_df['label'].unique())
+        g_simple = nx.Graph(name='SimpG-StClust'+str(clust_lbl)) # Simple graph
+        #clust_st = np.array([x for x in no_noise_st_arr])
+#        clust_st = station_coordinates
+        lat = np.array(st_cluster_df['st_lat'])
+        lon = np.array(st_cluster_df['st_lon'])
+        st_coords = np.column_stack((lat,lon))
+        dist_arr = haversine_distances(np.radians(st_coords),np.radians(st_coords))
+
+        for i in range(dist_arr.shape[0]):
+            g_simple.add_node(st_cluster_df.loc[i,'st_name'],
+                              pos=(st_cluster_df.loc[i,'st_lat'],
+                                     st_cluster_df.loc[i,'st_lon']),
+                              label=st_cluster_df.loc[i,'label'],
+                              station=st_cluster_df.loc[i,'st_name'])
+            for j in range(i,dist_arr.shape[1]):
+                if j>i:
+#                    __f_dist = dist_arr[i,j]/6371.088
+                    __f_dist = round(dist_arr[i,j]*6371.088,2)
+                    ''' Build the simple graph with edge weights <= 30 Km '''
+#                    if __f_dist <= self.epsilon:
+                    if __f_dist <= self.max_distance:
+                        g_simple.add_edge(st_cluster_df.loc[i,'st_name'],
+                                          st_cluster_df.loc[j,'st_name'],
+                                          distance=round(__f_dist,2))
+        ''' remove nodes with no neigbours <= _l_max_distance '''
+        g_simple.remove_nodes_from(list(nx.isolates(g_simple)))
+
+        return g_simple
+
+    ''' DEPRECATE '''
+    def get_list_subgraphs(self,station_df):
+
+        import networkx as nx
+
+        l_sub_graphs = []
+
+        unique_labels = set(station_df['label'])
+        #unique_labels = list(set([label for n,label in simple_graph.nodes.data("label")]))
+        unique_labels = set(nx.get_node_attributes(simple_graph,'label').values())
+        ''' remove noise label = -1 from set '''
+        unique_labels.remove(-1)
+
+        for label in unique_labels:
+            selected_nodes = sorted([n for n,v in simple_graph.nodes(data=True) if v['label'] == label])
+            l_sub_graphs.append(simple_graph.subgraph(selected_nodes))
+        return l_sub_graphs

@@ -1,0 +1,21 @@
+Trial,Station Type,Station Quantity,Name,Algorithm,Distance,Epsilon,Minimum Points,Metric,Method,Fit_Predict,Cluster Count,Clustered Station Count,Unclustered Noise Count,Modularity,Conductance Average,Coverage Score,Performance Score
+1,EH,118,ASYNC-LPA,None,10,0.001586292,None,haversine,random,None,8,23,95,0.665,0,1,0.9526
+2,EH,118,ASYNC-LPA,None,20,0.003172584,None,haversine,random,None,10,53,65,0.67,0.186,0.8511,0.9274
+3,EH,118,ASYNC-LPA,None,30,0.004758877,None,haversine,random,None,18,94,24,0.7022,0.0992,0.9425,0.9481
+4,EH,118,ASYNC-LPA,None,40,0.006345169,None,haversine,random,None,15,109,9,0.6928,0.0992,0.9479,0.9424
+5,EH,118,ASYNC-LPA,None,50,0.007931461,None,haversine,random,None,14,114,4,0.6597,0.1222,0.92,0.9457
+6,EH,118,LPA,None,10,0.001586292,None,haversine,None,None,9,23,95,0.6863,0.0486,0.95,0.9842
+7,EH,118,LPA,None,20,0.003172584,None,haversine,None,None,11,53,65,0.6833,0.189,0.8511,0.9441
+8,EH,118,LPA,None,30,0.004758877,None,haversine,None,None,19,94,24,0.7065,0.1156,0.9381,0.9526
+9,EH,118,LPA,None,40,0.006345169,None,haversine,None,None,14,109,9,0.704,0.0819,0.9616,0.9359
+10,EH,118,LPA,None,50,0.007931461,None,haversine,None,None,13,114,4,0.6665,0.0988,0.9263,0.9446
+11,EH,118,GREEDY,None,10,0.001586292,None,haversine,None,None,9,23,95,0.6863,0.0486,0.95,0.9842
+12,EH,118,GREEDY,None,20,0.003172584,None,haversine,None,None,7,53,65,0.7024,0.051,0.9787,0.8752
+13,EH,118,GREEDY,None,30,0.004758877,None,haversine,None,None,16,94,24,0.7235,0.0244,0.9558,0.9499
+14,EH,118,GREEDY,None,40,0.006345169,None,haversine,None,None,16,94,24,0.7235,0.0244,0.9558,0.9499
+15,EH,118,GREEDY,None,50,0.007931461,None,haversine,None,None,10,114,4,0.6679,0.0389,0.9474,0.8871
+16,EH,118,NAIVE-GREEDY,None,10,0.001586292,None,haversine,None,None,9,23,95,0.6863,0.0486,0.95,0.9842
+17,EH,118,NAIVE-GREEDY,None,20,0.003172584,None,haversine,None,None,7,53,65,0.7024,0.051,0.9787,0.8752
+18,EH,118,NAIVE-GREEDY,None,30,0.004758877,None,haversine,None,None,16,94,24,0.7235,0.0244,0.9558,0.9499
+19,EH,118,NAIVE-GREEDY,None,40,0.006345169,None,haversine,None,None,11,109,9,0.7121,0.0212,0.9753,0.9118
+20,EH,118,NAIVE-GREEDY,None,50,0.007931461,None,haversine,None,None,10,114,4,0.6679,0.0389,0.9474,0.8871
