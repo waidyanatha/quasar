@@ -355,7 +355,7 @@ class cluster_data():
 
         st_cluster_df.reset_index(drop=True, inplace=True)
         clust_lbl = int(st_cluster_df['label'].unique())
-        g_simple = nx.Graph(name='SimpG-StClust'+str(clust_lbl)) # Simple graph
+        g_simple = nx.Graph(name='Cluster-'+str(clust_lbl)) # Simple graph
         #clust_st = np.array([x for x in no_noise_st_arr])
 #        clust_st = station_coordinates
         lat = np.array(st_cluster_df['st_lat'])
@@ -379,6 +379,7 @@ class cluster_data():
                         g_simple.add_edge(st_cluster_df.loc[i,'st_name'],
                                           st_cluster_df.loc[j,'st_name'],
                                           distance=round(__f_dist,2))
+
         ''' remove nodes with no neigbours <= _l_max_distance '''
         g_simple.remove_nodes_from(list(nx.isolates(g_simple)))
 

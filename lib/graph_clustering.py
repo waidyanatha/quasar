@@ -202,5 +202,6 @@ class community_detection():
 
         for label in unique_labels:
             selected_nodes = sorted([n for n,v in simple_graph.nodes(data=True) if v['label'] == label])
-            l_sub_graphs.append(simple_graph.subgraph(selected_nodes))
+            if len(selected_nodes) > 0:
+                l_sub_graphs.append(simple_graph.subgraph(selected_nodes))
         return l_sub_graphs
