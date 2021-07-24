@@ -6,27 +6,57 @@
 
 class community_detection():
 
-    def __init__(self, clustering_name="greedy_modularity_communities", **cluster_params):
+#    def __init__(self, clustering_name="greedy_modularity_communities", **cluster_params):
+    def __init__(self, **feature_params):
 
+        _default_distance = 30.0
+        self.max_distance=_default_distance
+#        self.epsilon=_default_distance/6371.0088
+        self.minimum_samples=3
+
+        try:
+            if 'distance_km' in feature_params:
+                if isinstance(feature_params["distance_km"],float) and feature_params["distance_km"] > 0:
+                    self.epsilon=feature_params["distance_km"]/6371.0088
+                    self.max_distance=feature_params["distance_km"]
+                else:
+                    raise ValueError('distance_km %s must be a float > 0.'
+                                     % str(feature_params["distance_km"]))
+
+            if 'minimum_samples' in feature_params:
+                if isinstance(feature_params["minimum_samples"],int) and feature_params["minimum_samples"] > 0:
+                    self.minimum_samples=feature_params["minimum_samples"]
+                else:
+                    raise ValueError('minimum_samples %s must be an int > 0.'
+                                     % str(feature_params["minimum_samples"]))
+
+        except Exception as err:
+            print("Class community_detection [__init__()] Error message:", err)
+
+
+    def set_community_detection_params(self, clustering_name="greedy_modularity_communities", **cluster_params):
+
+        import traceback
         import numpy as np
 
         _default_distance = 50.0
-        _cluster_method_name = ['asyn_lpa_communities',
-                                'label_propagation_communities',
-                                'greedy_modularity_communities',
-                                '_naive_greedy_modularity_communities',
-                                'lukes_partitioning',
-                                'asyn_fluidc',
-                                'girvan_newman'
+        _cluster_method_name = ['ASYNC-LPA',  #asyn_lpa_communities
+                                'LPC',        #label_propagation_communities'
+                                'GREEDY',     #greedy_modularity_communities
+                                'NAIVE-GREEDY',  #_naive_greedy_modularity_communities'
+                                'LUKES',         #lukes_partitioning
+                                'ASYNC-FLUID',   #asyn_fluidc
+                                'GIRVAN-NEWMAN'  #girvan_newman
                                 ]
 
         self.name=clustering_name
-        self.max_distance=_default_distance
-        self.epsilon=_default_distance/6371.0088
-        self.minimum_samples=3
+#        self.max_distance=_default_distance
+#        self.epsilon=_default_distance/6371.0088
+#        self.minimum_samples=3
         self.seed=None
-        self.weight='distance'
-        self.maximum_node_weight=20
+        self.weight='distance'     # necessary for defining the attribute that holds the edgeweight
+        self.maximum_node_weight=200
+        self.maximum_iterations=200
 
         try:
             ''' Set the default paramters for the specific clustering method '''
@@ -36,6 +66,7 @@ class community_detection():
 
             if 'distance_km' in cluster_params:
                 if isinstance(cluster_params["distance_km"],float) and cluster_params["distance_km"] > 0:
+#                if cluster_params["distance_km"].astype(float) > 0:
                     self.epsilon=cluster_params["distance_km"]/6371.0088
                     self.max_distance=cluster_params["distance_km"]
                 else:
@@ -44,16 +75,18 @@ class community_detection():
 
             if 'minimum_samples' in cluster_params:
                 if isinstance(cluster_params["minimum_samples"],int) and cluster_params["minimum_samples"] > 0:
+#                if cluster_params["minimum_samples"].astype(int) > 0:
                     self.minimum_samples=cluster_params["minimum_samples"]
                 else:
                     raise ValueError('minimum_samples %s must be an int > 0.'
                                      % str(cluster_params["minimum_samples"]))
 
             if 'seed' in cluster_params:
-                if (
-                    isinstance(cluster_params["seed"],int) or
-                    isinstance(cluster_params["seed"], np.random) or     #fix this check it's not working
-                    cluster_params["seed"] == None):
+#                if (
+#                    isinstance(cluster_params["seed"],int) or
+#                    isinstance(cluster_params["seed"], np.random) or     #fix this check it's not working
+#                    cluster_params["seed"] == None):
+                if cluster_params["seed"] in ['int', np.random, None]:
                     self.seed=cluster_params["seed"]
                 else:
                     raise ValueError('seed parameter %s must be {int, np.random, None}.'
@@ -63,13 +96,22 @@ class community_detection():
                 if (cluster_params["weight"] == 'distance'):
                     self.weight=cluster_params["weight"]
                 else:
-                    raise ValueError('seed parameter %s must be {int, np.random, None}.'
-                                     % str(cluster_params["seed"]))
+                    raise ValueError('weight parameter %s must be = {distance}.'
+                                     % str(cluster_params["weight"]))
+
+            if 'max_iter' in cluster_params:
+                if isinstance(cluster_params["max_iter"],int) and cluster_params["max_iter"] > 0:
+                    self.maximum_iterations=cluster_params["max_iter"]
+                else:
+                    raise ValueError('maximum iteration %s must be an int > 0.'
+                                     % str(cluster_params["max_iter"]))
 
         except Exception as err:
-            print("[class community_detection __init__()] Error message:", err)
+            print("Class community_detection [set_community_detection_params] Error message:", err)
+            print(traceback.format_exc())
 
-#    def get_communities(self,st_arr):
+        return self
+
     def get_communities(self,station_df):
 
         import networkx as nx
@@ -77,56 +119,62 @@ class community_detection():
 
         try:
             ''' sample the graph '''
-#            g_simple_ = self.get_simple_graph(st_arr)
             g_simple_ = self.get_simple_graph(station_df)
 
             if nx.is_empty(g_simple_):
                 raise ValueError('A simple graph with %d stations was not created' % station_df.shape[0])
 
-            if self.name == 'asyn_lpa_communities':
+            if self.name == 'ASYNC-LPA':     #asyn_lpa_communities
                 g_communities_ = list(nx_comm.asyn_lpa_communities(
                     g_simple_,
                     weight=self.weight,
                     seed=self.seed))
 
-            elif self.name == 'label_propagation_communities':
+            elif self.name == 'LPC':     #label_propagation_communities
                 g_communities_ = list(nx_comm.label_propagation_communities(
                     g_simple_))
 
-            elif self.name == 'greedy_modularity_communities':
+            elif self.name == 'GREEDY':     # greedy_modularity_communities
                 g_communities_ = list(nx_comm.greedy_modularity_communities(
                     g_simple_))
 
-            elif self.name == '_naive_greedy_modularity_communities':
+            elif self.name == 'NAIVE-GREEDY':     #_naive_greedy_modularity_communities
                 g_communities_ = list(nx_comm._naive_greedy_modularity_communities(
                     g_simple_))
 
-            elif self.name == 'lukes_partitioning':
+            elif self.name == 'LUKES':     # lukes_partitioning
+                # TODO: create MST of g_simple first but removing the mimum weigted edge doesn't seem right
                 g_communities_ = list(nx_comm.lukes_partitioning(
-                    g_simple_, edge_weight=self.weight, max_size=self.maximum_node_weight))
+                    g_simple_,
+                    edge_weight=self.weight,
+                    max_size=self.maximum_node_weight))
 
-            elif self.name == 'asyn_fluidc':
+            elif self.name == 'ASYNC-FLUID':     # asyn_fluidc
+                # TODO: create complete graph for g_simple but a complete graph would not work
                 g_communities_ = list(nx_comm.asyn_fluidc(
                     g_simple_,
                     k=15,
                     max_iter=300,
                     seed=self.seed))
 
-            elif self.name == 'girvan_newman':
-                g_communities_ = list(nx_comm.girvan_newman(
-                    g_simple_))
+            elif self.name == 'GIRVAN-NEWMAN':     # girvan_newman
+#                g_communities_ = list(nx_comm.girvan_newman(g_simple_))
+                tmp_communities = nx_comm.girvan_newman(g_simple_)
+#                g_communities_  = next(tmp_communities)
+                g_communities_  = list(next(nx_comm.girvan_newman(g_simple_)))
+#                print(list(g_communities_))
 
             else:
-                print("something was not right")
+                raise AttributeError("something was not right")
 
-            if isinstance(g_communities_, list) and len(g_communities_)>0:
+#            g_simple_ = self.set_graph_cluster_labels(g_simple_, g_communities_)
+            if isinstance(g_communities_, list): #len(g_communities_)>0
                 g_simple_ = self.set_graph_cluster_labels(g_simple_, g_communities_)
-                print(g_simple_)
 
             return g_simple_, g_communities_
 
         except Exception as err:
-            print("[get_communities] Error message:", err)
+            print("Class community_detection [get_communities] Error message:", err)
 
 
     def set_graph_cluster_labels(self, _g_simple, _g_communities):
@@ -135,6 +183,7 @@ class community_detection():
 #        import matplotlib.pyplot as plt
 
         ''' remove all clusters less than minimum_sample '''
+        print('Relabelling communities and removing those > %d' % self.minimum_samples)
         label_val = 0
         for cl_idx, cl_nodes_dict in enumerate(_g_communities):
             if len(cl_nodes_dict) >= self.minimum_samples:

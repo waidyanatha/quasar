@@ -8,8 +8,11 @@ class cluster_data():
 
     def __init__(self, clustering_name="DBSCAN", **cluster_params):
 
+        import numpy as np
+        import traceback
+
         _default_distance = 50.0
-        _cluster_method_name = ['DBSCAN',
+        self._cluster_method_name = ['DBSCAN',
                                 'HDBSCAN',
                                 'AFFINITYPROPAGATION',
                                 'OPTICS',
@@ -57,36 +60,38 @@ class cluster_data():
 
         try:
             ''' Set the default paramters for the specific clustering method '''
-            if self.name not in _cluster_method_name:
-                raise ValueError('{0} is an undefined clustering_name. Must be {1}'.format(self.name,_cluster_method_name))
+            if self.name not in self._cluster_method_name:
+                raise ValueError('{0} is an undefined clustering_name. Must be {1}'.format(self.name,self._cluster_method_name))
 
             if 'distance_km' in cluster_params:
                 if isinstance(cluster_params["distance_km"],float) and cluster_params["distance_km"] > 0:
-                    self.epsilon=cluster_params["distance_km"]/6371.0088
-                    self.max_distance=cluster_params["distance_km"]
+                    self.epsilon=float(cluster_params["distance_km"]/6371.0088)
+                    self.max_distance=float(cluster_params["distance_km"])
                 else:
                     raise ValueError('distance_km %s must be a float > 0.'
                                      % str(cluster_params["distance_km"]))
 
             if 'minimum_samples' in cluster_params:
-                if isinstance(cluster_params["minimum_samples"],int) and cluster_params["minimum_samples"] > 0:
-                    self.minimum_samples=cluster_params["minimum_samples"]
+                if cluster_params["minimum_samples"] > 0:
+#                if isinstance(cluster_params["minimum_samples"],int) and cluster_params["minimum_samples"] > 0:
+                    self.minimum_samples=int(cluster_params["minimum_samples"])
                 else:
                     raise ValueError('minimum_samples %s must be an int > 0.'
                                      % str(cluster_params["minimum_samples"]))
 
             if 'minimum_cluster_size' in cluster_params:
-                if isinstance(cluster_params["minimum_cluster_size"],int) and cluster_params["minimum_cluster_size"] > 0:
-                    self.minimum_cluster_size=cluster_params["minimum_cluster_size"]
+#                if isinstance(cluster_params["minimum_cluster_size"],int) and cluster_params["minimum_cluster_size"] > 0:
+                if cluster_params["minimum_cluster_size"] > 0:
+                    self.minimum_cluster_size=int(cluster_params["minimum_cluster_size"])
                 else:
-                    raise ValueError('minimum_samples %s must be an int > 0.'
+                    raise ValueError('minimum_cluster_size %s must be an int > 0.'
                                      % str(cluster_params["minimum_cluster_size"]))
 
             if 'max_iter' in cluster_params:
                 if isinstance(cluster_params["max_iter"],int) and cluster_params["max_iter"] > 0:
                     self.maximum_iterations=cluster_params["max_iter"]
                 else:
-                    raise ValueError('minimum_samples %s must be an int > 0.'
+                    raise ValueError('maximum iteration %s must be an int > 0.'
                                      % str(cluster_params["max_iter"]))
 
             if 'random_state' in cluster_params:
@@ -132,12 +137,17 @@ class cluster_data():
                                      % str(cluster_params["fit_predict"]))
 
         except Exception as err:
-            print("[cluster_data] Error message:", err)
+            print("Class cluster_data [__init__()] Error message:", err)
+            print(traceback.format_exc())
+
+        return None
 
     '''
         Get cluster labels for a given clustering method
     '''
     def get_clusters(self,st_arr):
+
+        import traceback
 
         import numpy as np
         from sklearn.cluster import DBSCAN,KMeans,AffinityPropagation,OPTICS,MeanShift,AgglomerativeClustering,Birch
@@ -157,8 +167,9 @@ class cluster_data():
                                    metric=self.metric)
 
             elif self.name == 'HDBSCAN':
-                clusterer = hdbscan.HDBSCAN(min_cluster_size=self.minimum_cluster_size,
-                                            min_samples = self.minimum_samples,
+                clusterer = hdbscan.HDBSCAN(min_samples = self.minimum_samples,
+#                                            min_cluster_size=self.minimum_cluster_size,
+                                            min_cluster_size=self.minimum_samples,
                                             cluster_selection_epsilon = self.epsilon,
                                             metric=self.metric,
                                             cluster_selection_method=self.cluster_method,
@@ -167,8 +178,12 @@ class cluster_data():
 
             elif self.name == 'AFFINITYPROPAGATION':
                 if self.metric in ['haversine']:
-                    precomputed = haversine_distances(np.radians(st_arr[:,0]),np.radians(st_arr[:,1]))
-                    st_arr = precomputed
+#d                    precomputed = haversine_distances(np.radians(st_arr[:,0]),np.radians(st_arr[:,1]))
+                    lat = np.array(st_arr[:,0])
+                    lon = np.array(st_arr[:,1])
+                    st_coords = np.column_stack((lat,lon))
+                    st_arr = haversine_distances(np.radians(st_coords),np.radians(st_coords))
+#d                    st_arr = precomputed
                     clusterer = AffinityPropagation(affinity='precomputed')
                 elif self.metric in ['euclidean']:
                     clusterer = AffinityPropagation(affinity=self.metric,
@@ -182,8 +197,9 @@ class cluster_data():
 
 
             elif self.name == 'OPTICS':
-                clusterer = OPTICS(min_cluster_size=self.minimum_cluster_size,
-                                   min_samples=self.minimum_samples,
+                clusterer = OPTICS(min_samples=self.minimum_samples,
+#                                   min_cluster_size=self.minimum_cluster_size,
+                                   min_cluster_size=self.minimum_samples,
                                    max_eps = self.epsilon,
                                    eps = self.epsilon,
                                    metric=self.metric,
@@ -204,7 +220,8 @@ class cluster_data():
                     self.fit_predict = False
 
             elif self.name == 'BIRCH':
-                clusterer = Birch(n_clusters=None, threshold=self.epsilon)
+                clusterer = Birch(n_clusters=None,
+                                  threshold=self.epsilon)
 
             elif self.name == 'MEANSHIFT':
                 clusterer = MeanShift()
@@ -249,7 +266,8 @@ class cluster_data():
             return clusterer.labels_, _labels_true, cluster_centers #, _core_samples_mask
 
         except Exception as err:
-            print("[get_clusters] Error message:", err)
+            print("Class cluster_data [get_clusters] Error message:", err)
+            print(traceback.format_exc())
 
     '''
         Get Cluster Centers
@@ -258,7 +276,7 @@ class cluster_data():
 
         if name == 'DBSCAN':
             return None
-        elif name == 'AFFINITYPROPAGATION':
+        elif name == 'AFFINITYPROPAGATION' and self.metric in ['euclidean']:
             return clusterer.cluster_centers_
         elif name == 'MEANSHIFT':
             return clusterer.cluster_centers_
