@@ -7,6 +7,14 @@
 class cluster_quality_metric():
 
     def __init__(self):
+
+        self._max_distance=30.0
+        self._minimum_samples=3
+        self._algorithm = None
+        self._metric = None
+        self._cluster_method = None
+        self._seed = None
+
         pass
 
     def set_quality_frame(self, clustering_name: str="greedy_modularity_communities",
@@ -16,12 +24,6 @@ class cluster_quality_metric():
         import numpy as np
 
         self._name=clustering_name
-        self._max_distance=30.0
-        self._minimum_samples=3
-        self._algorithm = None
-        self._metric = None
-        self._cluster_method = None
-
         try:
             ''' Set the default paramters for the specific clustering method '''
             if 'distance_km' in metric_params:
@@ -57,56 +59,21 @@ class cluster_quality_metric():
                 else:
                     raise ValueError('cluster_method %s is invalid.' % (metric_params["cluster_method"]))
 
+            #if 'seed' in metric_params:
+            #    if isinstance(metric_params["seed"], np.random):
+            #        self._seed="random"
+            #        print("\n",self._seed,"\n")
+            #    elif isinstance(metric_params["seed"], int):
+            #        print("\n",self._seed,"\n")
+            #    else:
+            #        raise ValueError('Seed %s is invalid.' % (metric_params["seed"]))
+
         except Exception as err:
             print("Class cluster_quality_metric [set_quality_frame] Error message:", err)
             print(traceback.format_exc())
 
         return self
 
-    ''' DEPRECATED Run the experiment sequence for all scenarios listed in clustering_runs.csv'''
-    def auto_run_exp_seq(self):
-
-#        from sklearn import metrics
-        #import pandas as pd
-        import numpy as np
-        import dunn as di
-
-        import traceback
-
-        try:
-            ''' Load data from CSV '''
-            _exp_seq_df = pd.read_csv("../experiments/cluster_runs.csv")
-
-            for i in _exp_seq_df.shape[0]:
-                _cluster_technique,_s_cloud_clust_name,_dict_clust_params = self.get_experiment_seq_params(i)
-
-            if len(_cloud_clust_st_df['label'].unique()) <= 1:
-                raise ValueError('Only 1 cluster cannot proceed with quality metrics')
-
-#            clust_quality = cq.cluster_quality_metric()
-#            print(_dict_clust_params)
-#            clust_quality.set_quality_frame(clustering_name=_s_cloud_clust_name, **_dict_clust_params)
-            cloud_clust_qual_df_ = self.get_quality_metrics(_cloud_clust_st_df)
-            print('Cluster quality measure computation complete!')
-            #print(cloud_clust_qual_df_)
-
-#            try:
-
-#                if cloud_clust_qual_df_['Generated Cluster Count'].unique()[0] <= 1:
-#                    raise ValueError('Clusters size is %d. Cannot estimate cluster quality indicators'
-#                                     % cloud_clust_qual_df_['Generated Cluster Count'])
-#            except Exception as err:
-#                print("Error message:", err)
-
-            results_df = pd.DataFrame([])
-            results_df=results_df.append(cloud_clust_qual_df_, ignore_index = True)
-            print(results_df)
-            results_df.to_csv("../experiments/results.csv")
-
-            ''' get experiment sequence parameters listed in clustering_runs.csv '''
-
-        except Exception as err:
-            print("Error message:", err)
 
     def get_seq_params(self, _iter_combos_df, exp_seq: int = 0):
 
@@ -199,8 +166,10 @@ class cluster_quality_metric():
 
             if isinstance(_iter_combos_df.loc[i, 'seed'], str):
                 if _iter_combos_df.loc[i, 'seed'] == "random":
+                    self._seed = "random"
                     _dict_clust_params["seed"] = np.random
                 elif _iter_combos_df.loc[i, 'seed'] == "int":
+                    self._seed = "int"
                     _dict_clust_params["seed"] = int
                 else:
                     pass
@@ -219,7 +188,7 @@ class cluster_quality_metric():
 #                  % (_cluster_technique,_s_cloud_clust_name,_dict_clust_params))
 
         except Exception as err:
-            print("Error message:", err)
+            print("Class cluster_quality_metric [get_seq_params] Error message:", err)
             print(traceback.format_exc())
 
         return _cluster_technique,_s_cloud_clust_name,_dict_clust_params
@@ -243,9 +212,6 @@ class cluster_quality_metric():
 
         try:
             if _cluster_technique == 'cloud':
-#d                print('Applying %s clustering technique and clustering %s'
-#d                      % (str(_cluster_technique).upper(),_s_cloud_clust_name))
-#d                print(_dict_clust_params)
                 cls_clust = cc.cluster_data(_s_cloud_clust_name,**_dict_clust_params)
                 labels, labels_true, clust_centers = cls_clust.get_clusters(arr_st_coords)
 
@@ -255,9 +221,6 @@ class cluster_quality_metric():
                 _cloud_clust_st_df['label'] = labels
 
             elif _cluster_technique == 'graph':
-#d                print('Applying %s clustering technique and clustering %s'
-#d                      % (str(_cluster_technique).upper(),_s_cloud_clust_name))
-#d                print(_dict_clust_params)
                 cls_g_clust = gc.community_detection()
                 params = cls_g_clust.set_community_detection_params(_s_cloud_clust_name,**_dict_clust_params)
 
@@ -269,7 +232,7 @@ class cluster_quality_metric():
                 raise ValueError('Invalid clustering technique: %s' % _cluster_technique)
 
         except Exception as err:
-            print("Error message:", err)
+            print("Class cluster_quality_metric [get_clusters] Error message:", err)
             print(traceback.format_exc())
 
         return _cloud_clust_st_df
@@ -303,6 +266,8 @@ class cluster_quality_metric():
             _s_algo = str(self._algorithm)          # Algorithm
             _s_metric = str(self._metric)           # Metric
             _s_method = str(self._cluster_method)   # Method
+            _s_seed = str(self._seed)               # Seed
+#            print('seed is',_s_seed)
             __lst_valid_cloud_clust = [frozenset(clust) for clust in l_cloud_g_cluster_
                                        if len(clust) >= self._minimum_samples]
             _n_valid_clust = len(__lst_valid_cloud_clust)         # Valid Cluster Count
@@ -321,22 +286,26 @@ class cluster_quality_metric():
             _f_dunn = di.dunn_fast(station_df[['st_lat','st_lon']].to_numpy(),
                                    list(station_df['label']))                           # Dunn Index
             _f_modul = nx_comm.modularity(cloud_G_simple_,l_cloud_g_cluster_)           # Modularity
-            print(cluster_i for cluster_i in __lst_valid_cloud_clust)
-            l_conductance = list(nx.conductance(cloud_G_simple_, cluster_i, weight='distance')
-                                 for cluster_i in __lst_valid_cloud_clust)
-            _f_conduct = sum(l_conductance)/len(l_conductance)                          # Conductance Average
+
+            try:
+                l_conductance = list(nx.conductance(cloud_G_simple_, cluster_i, weight='distance')
+                                     for cluster_i in __lst_valid_cloud_clust)
+                _f_conduct = sum(l_conductance)/len(l_conductance)                      # Conductance Average
+            except Exception:
+                _f_conduct = 0
             _f_cover = nx_comm.coverage(cloud_G_simple_, l_cloud_g_cluster_)            # Coverage Score
             _f_perform = nx_comm.performance(cloud_G_simple_, l_cloud_g_cluster_)       # Performance Score
 
             dict_quality_mesrs = {
                 'Station Types': _s_st_types,
                 'Station Quantity': _n_tot_num_st,
-                'Minimum Distance': _f_min_dist,
+                'Maximum Distance': _f_min_dist,
                 'Minimum Points': _n_min_pts,
                 'Name': _s_clust,
                 'Algorithm': _s_algo,
                 'Metric': _s_metric,
                 'Method': _s_method,
+                'Seed': _s_seed,
                 'Generated Cluster Count': _n_num_clust,
                 'Valid Cluster Count': _n_valid_clust,
                 'Clustered Station Count': _n_sts_in_clusters,
@@ -351,96 +320,17 @@ class cluster_quality_metric():
                 'Coverage Score': _f_cover,
                 'Performance Score': _f_perform,
             }
+#            print('Dict qual',dict_quality_mesrs('Seed'))
             quality_metric_df = pd.DataFrame(dict_quality_mesrs, index=[_s_clust])
             quality_metric_df.reset_index(drop=True, inplace=True)
 
         except Exception as err:
-            print("Error message:", err)
+            print("Class cluster_quality_metric [get_quality_metrics] Error message:", err)
 #            print(cloud_G_simple_.edges('distance'))
             print(traceback.format_exc())
 
         return quality_metric_df
 
-    def deprecated_get_quality_metrics(self, station_df):
-
-        import dunn as di
-        from sklearn import metrics
-        import networkx as nx
-        import networkx.algorithms.community as nx_comm
-        import numpy as np
-        import pandas as pd
-
-        cloud_G_simple_, l_cloud_g_cluster_ = self.__get_graph_n_labels(station_df)
-
-        _df_cols = ['Station Types',          #0
-                    'Station Quantity',      #1
-                    'Minimum Distance',      #2
-                    'Minimum Points',        #3
-                    'Name', 'Algorithm',     #4
-                    'Metric',                #5
-                    'Method',                #6
-                    'Generated Cluster Count',  #7
-                    'Valid Cluster Count',      #8
-                    'Clustered Station Count',  #9
-                    'Unclsutered Noise Count',  #10
-                    'Average Node Degree',      #11
-                    'Silhouette Coefficient',   #12
-                    'Calinski Harabaz score',   #13
-                    'Davies Bouldin score',     #14
-                    'Dunn Index',               #15
-                    'Modularity',               #16
-                    'Conductance Average',      #17
-                    'Coverage Score',           #18
-                    'Performance Score'         #19
-                   ]
-        quality_metric_df = pd.DataFrame(columns = _df_cols)
-
-        ''' Quality metric metadata '''
-        _s_st_types = station_df['st_type'].unique()
-        _n_tot_num_st = station_df.shape[0]
-
-        ''' Generate clustering statistics '''
-        _n_community_nodes = sum([len(v) for v in cloud_G_simple_])
-        _n_min_size_clusters = len(set([v['label'] for n,v in cloud_G_simple_.nodes(data=True) if v['label'] > -1]))
-        _n_nodes_in_clusters = len([v['label'] for n,v in cloud_G_simple_.nodes(data=True) if v['label'] > -1])
-        _n_noise_count = station_df.shape[0] - _n_nodes_in_clusters
-        _n_avg_degree = sum([v for k, v in cloud_G_simple_.degree()
-                             if cloud_G_simple_.nodes[k]["label"] > -1])/_n_nodes_in_clusters
-
-        ''' total number of stations submitted for clustering '''
-
-        quality_metric_df['Name'] = self._name
-        ''' Minimum size of a cluster; i.e. minPts '''
-#        quality_metric_df['Station Quantity'] = station_df.shape[0]
-        ''' clustering technique name '''
-#        quality_metric_df['Minimum Points'] = self._minimum_samples
-        ''' Minimum cluster density distance in Km '''
-#        quality_metric_df['Minimum Distance'] = self._max_distance
-        '''Number of clusters wth size <= distance '''
-#        quality_metric_df['Generated Cluster Count'] = len(l_cloud_g_cluster_)
-        '''Number of method generated communities: '''
-#        quality_metric_df['Valid Cluster Count'] = _n_min_size_clusters
-        '''Number of total nodes in valid clusters'''
-#        quality_metric_df['Clustered Station Count'] = _n_nodes_in_clusters
-        ''' Number of noise points (total stations - valid cluster nodes) '''
-#        quality_metric_df['Unclsutered Noise Count'] = _n_noise_count
-        '''Estimated average degree of valid cluster nodes '''
-#        quality_metric_df['Average Node Degree'] = _n_avg_degree
-        ''' Conductance does not accept singelton clusters '''
-        __lst_valid_cloud_clust = [frozenset(clust) for clust in l_cloud_g_cluster_
-                                   if len(clust) >= self._minimum_samples]
-        l_conductance = list(nx.conductance(cloud_G_simple_, cluster_i, weight='distance')
-                             for cluster_i in __lst_valid_cloud_clust)
-        ''' Conductance average [-1.0,1.0]: %0.4f '''
-#        quality_metric_df['Conductance Average'] = sum(l_conductance)/len(l_conductance)
-        ''' Modularity score [-1.0,1.0]: %0.4f '''
-#        quality_metric_df['Modularity'] = nx_comm.modularity(cloud_G_simple_,l_cloud_g_cluster_)
-        ''' Coverage score [-1.0,1.0]: %0.4f '''
-#        quality_metric_df['Coverage Score'] = nx_comm.coverage(cloud_G_simple_, l_cloud_g_cluster_)
-        ''' Performance score [-1.0,1.0]: %0.4f '''
-#        quality_metric_df['Performance Score'] = nx_comm.performance(cloud_G_simple_, l_cloud_g_cluster_)
-
-        return quality_metric_df
 
     def __get_graph_n_labels(self, station_df):
 

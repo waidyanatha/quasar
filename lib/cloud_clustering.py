@@ -259,7 +259,7 @@ class cluster_data():
 #        _core_samples_mask = np.zeros_like(clusterer.labels_, dtype=bool)
 #        _core_samples_mask[clusterer.core_sample_indices_] = True
 
-            print(clusterer)
+#            print(clusterer)
 
             cluster_centers = self.get_cluster_centers(self.name,clusterer)
 
