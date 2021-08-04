@@ -191,6 +191,7 @@ class cluster_data():
                                                     max_iter = self.maximum_iterations,
                                                     convergence_iter=15,
                                                     preference=None,
+                                                    random_state = self.random_state,
                                                    )
                 else:
                     raise ValueError('Invalid metric %s . Must be euclidean or havesine' % self.metric)
@@ -362,7 +363,8 @@ class cluster_data():
 #        return labels, labels_true, kmeans.cluster_centers_, scaled_features, y_kmeans
         return kmeans.labels_, kmeans.cluster_centers_, scaled_features, y_kmeans
 
-    ''' Create a graph for each cluster
+    ''' ??? DEPRECATED ???
+        Create a graph for each cluster
         return networkx graph object
     '''
     def get_simple_graph(self,st_cluster_df):

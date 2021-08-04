@@ -255,6 +255,7 @@ class cluster_quality_metric():
             if _n_num_clust <= 1:
                 raise ValueError('Cannot compute quality metric for %d clusters' % (_n_num_clust))
 
+            ''' returns the simple graph of the clusters and the set dictionary of cluster nodes '''
             cloud_G_simple_, l_cloud_g_cluster_ = self.__get_graph_n_labels(station_df)
 #            print(cloud_G_simple_.nodes(data=True))
 
@@ -276,15 +277,25 @@ class cluster_quality_metric():
             _n_noise = station_df.shape[0] - _n_sts_in_clusters   # Unclsutered Noise Count
             _n_avg_deg = sum([v for k, v in cloud_G_simple_.degree()
                               if cloud_G_simple_.nodes[k]["label"] > -1])/_n_sts_in_clusters # Average Node Degree
-            _f_silhouette = metrics.silhouette_score(station_df[['st_lat','st_lon']].to_numpy(),
-                                                     list(station_df['label']),
-                                                     metric='haversine')               # Silhouette Coefficient
-            _f_cal_har = metrics.calinski_harabasz_score(station_df[['st_lat','st_lon']].to_numpy(),
-                                                         list(station_df['label']))    # Calinski Harabaz score
-            _f_dav_bould = metrics.davies_bouldin_score(station_df[['st_lat','st_lon']].to_numpy(),
-                                                        list(station_df['label']))     # Davies Bouldin score
-            _f_dunn = di.dunn_fast(station_df[['st_lat','st_lon']].to_numpy(),
-                                   list(station_df['label']))                           # Dunn Index
+
+            ''' prepare valid stations for measuring the quality'''
+            lst_st = list(nx.get_node_attributes(cloud_G_simple_,'pos').values())
+            lst_lbl = list(nx.get_node_attributes(cloud_G_simple_,'label').values())
+
+            _f_silhouette = metrics.silhouette_score(lst_st, lst_lbl,
+                                                     metric='haversine')   # Silhouette Coefficient
+#            _f_silhouette = metrics.silhouette_score(station_df[['st_lat','st_lon']].to_numpy(),
+#                                                     list(station_df['label']),
+#                                                     metric='haversine')               # Silhouette Coefficient
+            _f_cal_har = metrics.calinski_harabasz_score(lst_st, lst_lbl)  # Calinski Harabaz score
+#            _f_cal_har = metrics.calinski_harabasz_score(station_df[['st_lat','st_lon']].to_numpy(),
+#                                                         list(station_df['label']))    # Calinski Harabaz score
+            _f_dav_bould = metrics.davies_bouldin_score(lst_st, lst_lbl)   # Davies Bouldin score
+#            _f_dav_bould = metrics.davies_bouldin_score(station_df[['st_lat','st_lon']].to_numpy(),
+#                                                        list(station_df['label']))     # Davies Bouldin score
+            _f_dunn = di.dunn_fast(lst_st, lst_lbl)                        # Dunn Index
+#            _f_dunn = di.dunn_fast(station_df[['st_lat','st_lon']].to_numpy(),
+#                                   list(station_df['label']))                           # Dunn Index
             _f_modul = nx_comm.modularity(cloud_G_simple_,l_cloud_g_cluster_)           # Modularity
 
             try:

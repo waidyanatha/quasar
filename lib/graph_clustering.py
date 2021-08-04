@@ -249,8 +249,11 @@ class community_detection():
         l_sub_graphs = []
         #unique_labels = list(set([label for n,label in simple_graph.nodes.data("label")]))
         unique_labels = set(nx.get_node_attributes(simple_graph,'label').values())
-        ''' remove noise label = -1 from set '''
-        unique_labels.remove(-1)
+        ''' remove noise label = -1 from set
+            TODO: only execute of -1 labels exist
+        '''
+        if -1 in unique_labels:
+            unique_labels.remove(-1)
 
         for label in unique_labels:
             selected_nodes = sorted([n for n,v in simple_graph.nodes(data=True) if v['label'] == label])
