@@ -162,7 +162,7 @@ class community_detection():
 
             elif self.name == 'GIRVAN-NEWMAN':     # girvan_newman
 #                g_communities_ = list(nx_comm.girvan_newman(g_simple_))
-                tmp_communities = nx_comm.girvan_newman(g_simple_)
+#                tmp_communities = nx_comm.girvan_newman(g_simple_)
 #                g_communities_  = next(tmp_communities)
                 g_communities_  = list(next(nx_comm.girvan_newman(g_simple_)))
 #                print(list(g_communities_))
@@ -189,7 +189,8 @@ class community_detection():
 #        print('Relabelling communities and removing those < %d' % self.minimum_samples)
         label_val = 0
         for cl_idx, cl_nodes_dict in enumerate(_g_communities):
-            if len(cl_nodes_dict) >= self.minimum_samples:
+#            if len(cl_nodes_dict) >= self.minimum_samples:
+            if len(cl_nodes_dict) > 1:
                 node_attr_dict = dict.fromkeys(cl_nodes_dict, label_val)
                 nx.set_node_attributes(_g_simple, node_attr_dict, "label")
                 label_val +=1

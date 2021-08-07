@@ -148,7 +148,7 @@ class cluster_quality_metric():
                 _n_min_cloud_clust_size = 3
             else:
                 _dict_clust_params["minimum_samples"] = _iter_combos_df.loc[i, 'minPts'].astype(int)
-                _dict_clust_params["minimum_samples"] = int(_iter_combos_df.loc[i, 'minPts'])
+#                _dict_clust_params["minimum_samples"] = int(_iter_combos_df.loc[i, 'minPts'])
 
             ''' Validate and assign algorithim based on the clustering name'''
             if _iter_combos_df.loc[i, 'algorithm'] in _dict_algorithms:
@@ -207,8 +207,8 @@ class cluster_quality_metric():
 
         import traceback
 
-        _cloud_clust_st_df = station_df.copy()
-        arr_st_coords = _cloud_clust_st_df[['st_lat','st_lon']].to_numpy()
+#        __st_clust_df = station_df.copy()
+        arr_st_coords = station_df[['st_lat','st_lon']].to_numpy()
 
         try:
             if _cluster_technique == 'cloud':
@@ -218,15 +218,15 @@ class cluster_quality_metric():
                 if arr_st_coords.shape[0] != labels.shape[0]:
                     raise ValueError('Mismatch in station coordinate and labels array sizes to; cannot proceed')
 
-                _cloud_clust_st_df['label'] = labels
+                station_df['label'] = labels
 
             elif _cluster_technique == 'graph':
                 cls_g_clust = gc.community_detection()
                 params = cls_g_clust.set_community_detection_params(_s_cloud_clust_name,**_dict_clust_params)
 
                 ''' G_cluster required to distinguish between communities and valid clusters '''
-                G_simple, G_clusters = cls_g_clust.get_communities(_cloud_clust_st_df)
-                _cloud_clust_st_df['label'] = nx.get_node_attributes(G_simple,'label').values()
+                G_simple, G_clusters = cls_g_clust.get_communities(station_df)
+                station_df['label'] = nx.get_node_attributes(G_simple,'label').values()
 
             else:
                 raise ValueError('Invalid clustering technique: %s' % _cluster_technique)
@@ -235,7 +235,7 @@ class cluster_quality_metric():
             print("Class cluster_quality_metric [get_clusters] Error message:", err)
             print(traceback.format_exc())
 
-        return _cloud_clust_st_df
+        return station_df
 
     ''' Get all quality measures and other parameters for the dataframe with appropriate cluster labels '''
     def get_quality_metrics(self, station_df):
@@ -251,7 +251,8 @@ class cluster_quality_metric():
         quality_metric_df = pd.DataFrame([])
 
         try:
-            _n_num_clust = len(station_df['label'].unique())     # Generated Cluster Count
+#            _n_num_clust = len(station_df['label'].unique())     # Generated Cluster Count
+            _n_num_clust = len([x for x in station_df['label'].unique() if x > -1])     # Generated Cluster Count
             if _n_num_clust <= 1:
                 raise ValueError('Cannot compute quality metric for %d clusters' % (_n_num_clust))
 
@@ -268,7 +269,6 @@ class cluster_quality_metric():
             _s_metric = str(self._metric)           # Metric
             _s_method = str(self._cluster_method)   # Method
             _s_seed = str(self._seed)               # Seed
-#            print('seed is',_s_seed)
             __lst_valid_cloud_clust = [frozenset(clust) for clust in l_cloud_g_cluster_
                                        if len(clust) >= self._minimum_samples]
             _n_valid_clust = len(__lst_valid_cloud_clust)         # Valid Cluster Count
