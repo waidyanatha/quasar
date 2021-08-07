@@ -74,7 +74,8 @@ class community_detection():
                                      % str(cluster_params["distance_km"]))
 
             if 'minimum_samples' in cluster_params:
-                if isinstance(cluster_params["minimum_samples"],int) and cluster_params["minimum_samples"] > 0:
+                if cluster_params["minimum_samples"] > 0:
+#                if isinstance(cluster_params["minimum_samples"],int) and cluster_params["minimum_samples"] > 0:
 #                if cluster_params["minimum_samples"].astype(int) > 0:
                     self.minimum_samples=cluster_params["minimum_samples"]
                 else:

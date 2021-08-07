@@ -23,6 +23,13 @@ class cluster_quality_metric():
         import traceback
         import numpy as np
 
+        self._max_distance=None
+        self._minimum_samples=None
+        self._algorithm=None
+        self._metric=None
+        self._cluster_method=None
+        self._seed=None
+
         self._name=clustering_name
         try:
             ''' Set the default paramters for the specific clustering method '''
@@ -59,14 +66,13 @@ class cluster_quality_metric():
                 else:
                     raise ValueError('cluster_method %s is invalid.' % (metric_params["cluster_method"]))
 
-            #if 'seed' in metric_params:
-            #    if isinstance(metric_params["seed"], np.random):
-            #        self._seed="random"
-            #        print("\n",self._seed,"\n")
-            #    elif isinstance(metric_params["seed"], int):
-            #        print("\n",self._seed,"\n")
-            #    else:
-            #        raise ValueError('Seed %s is invalid.' % (metric_params["seed"]))
+            if 'seed' in metric_params:
+                if metric_params["seed"] is np.random:
+                    self._seed="random"
+                elif metric_params["seed"] is int:
+                    self._seed="integer"
+                else:
+                    self._seed=None
 
         except Exception as err:
             print("Class cluster_quality_metric [set_quality_frame] Error message:", err)
