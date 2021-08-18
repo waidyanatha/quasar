@@ -139,6 +139,27 @@ class station_data():
 
         return st_list_, invalid_st_list_, st_inv_
 
+    ''' TODO: GET k nearest neigbours for a station set. Would be useful for Objective 3 for finding K stations closes to
+        a target-site or target-source'''
+    def get_station_neigbours(self, station_df, target_sites_df):
+        from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
+
+        st_arr = station_df[['st_lat','st_lon']].to_numpy()
+        clusterer = NearestNeighbors(n_neighbors=_n_min_cloud_clust_size,
+                                     radius=_l_max_distance,
+                                     metric='haversine',
+                                     algorithm='ball_tree',)
+
+        clusterer.fit(np.radians(st_arr),)
+        indices = clusterer.kneighbors(st_arr,return_distance=False)
+        new_array = [tuple(row) for row in indices]
+        uniques = np.unique(new_array)
+        print(uniques)
+        for i in uniques:
+            print(indices[i])
+
+        return arr_KNN
+
     ''' DEPRECATE -- GET WAVE FORMS '''
     def get_station_waveform(self, client, station_code, **kwargs):
 

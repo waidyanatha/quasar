@@ -103,7 +103,9 @@ class cluster_quality_metric():
                             "OPTICS": ['auto', 'ball_tree', 'kd_tree', 'brute']
                             }
 
+        TODO: acquire the lists and dictionaries from the respective cloud and graph clustering classes
         '''
+
         _l_cluster_techniques = ['cloud','graph']
         _l_cloud_cluster_name = ['DBSCAN','HDBSCAN','AFFINITYPROPAGATION','OPTICS','MEANSHIFT',
                                   'AGGLOMERATIVE','BIRCH','KMEANS','KNN','DENCLUE']
@@ -114,7 +116,7 @@ class cluster_quality_metric():
 
         _dict_clust_method = {"leaf","eom","xi","dbscan"}
         '''In all instances when possible <haversine> will be the choice; else it will be <precomputed>'''
-        _lst_metric = ['haversine','euclidean','manhattan','minkowski']
+        _lst_metric = ['haversine','euclidean','manhattan','minkowski','precomputed']
 
         _dict_clust_params = {}
 
@@ -257,14 +259,22 @@ class cluster_quality_metric():
         quality_metric_df = pd.DataFrame([])
 
         try:
-#            _n_num_clust = len(station_df['label'].unique())     # Generated Cluster Count
+#d            _n_num_clust = len(station_df['label'].unique())     # Generated Cluster Count
             _n_num_clust = len([x for x in station_df['label'].unique() if x > -1])     # Generated Cluster Count
             if _n_num_clust <= 1:
                 raise ValueError('Cannot compute quality metric for %d clusters' % (_n_num_clust))
 
             ''' returns the simple graph of the clusters and the set dictionary of cluster nodes '''
-            cloud_G_simple_, l_cloud_g_cluster_ = self.__get_graph_n_labels(station_df)
-#            print(cloud_G_simple_.nodes(data=True))
+            G_simple_, l_G_clusters_ = self.__get_graph_n_labels(station_df)
+#d            print([[n,v['label']] for n,v in G_simple_.nodes(data=True) if v['label'] == -1])
+#d            print(list(nx.isolates(G_simple_)))
+#d            print(l_G_clusters_)
+            # Clustered Station Count
+#d            H = G_simple_.copy(as_view=False)
+#d            if nx.isolates(H):
+#d                H.remove_nodes_from(list(nx.isolates(H)))
+#d                print('nodes=',H.number_of_nodes())
+#d            _n_sts_in_clusters = len([v['label'] for n,v in H.nodes(data=True) if v['label'] > -1])
 
             _s_st_types = str(station_df['st_type'].unique())   # Station Types
             _n_tot_num_st = station_df.shape[0]     # Station Quantity
@@ -275,18 +285,23 @@ class cluster_quality_metric():
             _s_metric = str(self._metric)           # Metric
             _s_method = str(self._cluster_method)   # Method
             _s_seed = str(self._seed)               # Seed
-            __lst_valid_cloud_clust = [frozenset(clust) for clust in l_cloud_g_cluster_
+            __lst_valid_cloud_clust = [frozenset(clust) for clust in l_G_clusters_
                                        if len(clust) >= self._minimum_samples]
             _n_valid_clust = len(__lst_valid_cloud_clust)         # Valid Cluster Count
+
             # Clustered Station Count
-            _n_sts_in_clusters = len([v['label'] for n,v in cloud_G_simple_.nodes(data=True) if v['label'] > -1])
+            _n_sts_in_clusters=0
+            for x in __lst_valid_cloud_clust:
+                _n_sts_in_clusters += len(x)
+#d            _n_sts_in_clusters = len([v['label'] for n,v in G_simple_.nodes(data=True) if v['label'] > -1])
+
             _n_noise = station_df.shape[0] - _n_sts_in_clusters   # Unclsutered Noise Count
-            _n_avg_deg = sum([v for k, v in cloud_G_simple_.degree()
-                              if cloud_G_simple_.nodes[k]["label"] > -1])/_n_sts_in_clusters # Average Node Degree
+            _n_avg_deg = sum([v for k, v in G_simple_.degree()
+                              if G_simple_.nodes[k]["label"] > -1])/_n_sts_in_clusters # Average Node Degree
 
             ''' prepare valid stations for measuring the quality'''
-            lst_st = list(nx.get_node_attributes(cloud_G_simple_,'pos').values())
-            lst_lbl = list(nx.get_node_attributes(cloud_G_simple_,'label').values())
+            lst_st = list(nx.get_node_attributes(G_simple_,'pos').values())
+            lst_lbl = list(nx.get_node_attributes(G_simple_,'label').values())
 
             _f_silhouette = metrics.silhouette_score(lst_st, lst_lbl,
                                                      metric='haversine')   # Silhouette Coefficient
@@ -302,16 +317,16 @@ class cluster_quality_metric():
             _f_dunn = di.dunn_fast(lst_st, lst_lbl)                        # Dunn Index
 #            _f_dunn = di.dunn_fast(station_df[['st_lat','st_lon']].to_numpy(),
 #                                   list(station_df['label']))                           # Dunn Index
-            _f_modul = nx_comm.modularity(cloud_G_simple_,l_cloud_g_cluster_)           # Modularity
+            _f_modul = nx_comm.modularity(G_simple_,l_G_clusters_)           # Modularity
 
             try:
-                l_conductance = list(nx.conductance(cloud_G_simple_, cluster_i, weight='distance')
+                l_conductance = list(nx.conductance(G_simple_, cluster_i, weight='distance')
                                      for cluster_i in __lst_valid_cloud_clust)
                 _f_conduct = sum(l_conductance)/len(l_conductance)                      # Conductance Average
             except Exception:
                 _f_conduct = 0
-            _f_cover = nx_comm.coverage(cloud_G_simple_, l_cloud_g_cluster_)            # Coverage Score
-            _f_perform = nx_comm.performance(cloud_G_simple_, l_cloud_g_cluster_)       # Performance Score
+            _f_cover = nx_comm.coverage(G_simple_, l_G_clusters_)            # Coverage Score
+            _f_perform = nx_comm.performance(G_simple_, l_G_clusters_)       # Performance Score
 
             dict_quality_mesrs = {
                 'Station Types': _s_st_types,
@@ -343,7 +358,7 @@ class cluster_quality_metric():
 
         except Exception as err:
             print("Class cluster_quality_metric [get_quality_metrics] Error message:", err)
-#            print(cloud_G_simple_.edges('distance'))
+#            print(G_simple_.edges('distance'))
             print(traceback.format_exc())
 
         return quality_metric_df
@@ -360,18 +375,18 @@ class cluster_quality_metric():
                                "minimum_samples":self._minimum_samples}
 
         cls_g_clust = gc.community_detection(**dict_feature_params)
-        cloud_G_simple_ = cls_g_clust.get_simple_graph(station_df)
+        G_simple_ = cls_g_clust.get_simple_graph(station_df)
         #print(cloud_G_simple.nodes(data=True))
 
-        _cloud_unique_labels = set(nx.get_node_attributes(cloud_G_simple_,'label').values())
+        _cloud_unique_labels = set(nx.get_node_attributes(G_simple_,'label').values())
 
         _l_cloud_g_cluster =[]
         for label in _cloud_unique_labels:
-            selected_nodes = sorted([n for n,v in cloud_G_simple_.nodes(data=True) if v['label'] == label])
+            selected_nodes = sorted([n for n,v in G_simple_.nodes(data=True) if v['label'] == label])
             if len(selected_nodes) > 0 and label != -1:
                 _l_cloud_g_cluster.append(set(selected_nodes))
             elif len(selected_nodes) > 0 and label == -1:
                 for st_node in selected_nodes:
                     _l_cloud_g_cluster.append(set([st_node]))
 
-        return cloud_G_simple_, _l_cloud_g_cluster
+        return G_simple_, _l_cloud_g_cluster

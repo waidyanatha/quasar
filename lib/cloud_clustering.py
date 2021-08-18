@@ -20,9 +20,9 @@ class cluster_data():
                                 'AGGLOMERATIVE',
                                 'BIRCH',
                                 'KMEANS',
-                                'KNN',
+                                'NEARESTNEIGHBORS',
                                 'DENCLUE']
-        _lst_metric = ['haversine','euclidean','manhattan','minkowski']
+        _lst_metric = ['haversine','euclidean','manhattan','minkowski','precomputed']
 
         ''' algorithms that can be used along with DBSCAN and HDBSCAN
             algorithm = 'auto' for DBSCAN and algorithm = 'best' for HDBSCAN selects the optimal
@@ -151,6 +151,7 @@ class cluster_data():
 
         import numpy as np
         from sklearn.cluster import DBSCAN,KMeans,AffinityPropagation,OPTICS,MeanShift,AgglomerativeClustering,Birch
+        from sklearn.neighbors import NearestNeighbors
         import hdbscan
 #        import sklearn.utils
         from sklearn.preprocessing import StandardScaler
@@ -177,14 +178,19 @@ class cluster_data():
                                             prediction_data=True)
 
             elif self.name == 'AFFINITYPROPAGATION':
-                if self.metric in ['haversine']:
-#d                    precomputed = haversine_distances(np.radians(st_arr[:,0]),np.radians(st_arr[:,1]))
+                if self.metric in ['haversine','precomputed']:
                     lat = np.array(st_arr[:,0])
                     lon = np.array(st_arr[:,1])
                     st_coords = np.column_stack((lat,lon))
                     st_arr = haversine_distances(np.radians(st_coords),np.radians(st_coords))
-#d                    st_arr = precomputed
-                    clusterer = AffinityPropagation(affinity='precomputed')
+                    clusterer = AffinityPropagation(affinity=self.metric,
+                                                    damping=0.5,
+                                                    max_iter = self.maximum_iterations,
+                                                    convergence_iter=15,
+                                                    preference=None,
+                                                    random_state = self.random_state,
+                                                    #affinity='precomputed',
+                                                   )
                 elif self.metric in ['euclidean']:
                     clusterer = AffinityPropagation(affinity=self.metric,
                                                     damping=0.5,
@@ -195,7 +201,6 @@ class cluster_data():
                                                    )
                 else:
                     raise ValueError('Invalid metric %s . Must be euclidean or havesine' % self.metric)
-
 
             elif self.name == 'OPTICS':
                 clusterer = OPTICS(min_samples=self.minimum_samples,
@@ -209,7 +214,22 @@ class cluster_data():
 
             elif self.name == 'AGGLOMERATIVE':
                 clusterer = AgglomerativeClustering(distance_threshold=self.epsilon,
-                                                   n_clusters=None)
+                                                    affinity=self.metric,
+                                                    linkage='average',
+                                                    n_clusters=None)
+                if self.metric in ['haversine','precomputed']:
+                    lat = np.array(st_arr[:,0])
+                    lon = np.array(st_arr[:,1])
+                    st_coords = np.column_stack((lat,lon))
+                    st_arr = haversine_distances(np.radians(st_coords),np.radians(st_coords))
+
+#                    clusterer = AgglomerativeClustering(distance_threshold=self.epsilon,
+#                                                        affinity=self.metric,
+#                                                        n_clusters=None)
+                elif self.metric in ['euclidean']:
+                    pass
+                else:
+                    raise ValueError('Invalid metric %s . Must be euclidean, havesine, or precomputed' % self.metric)
 
             elif self.name == 'DENCLUE':
                 clusterer = denclue.DENCLUE(h=None,
@@ -241,8 +261,11 @@ class cluster_data():
                                    max_iter=self.maximum_iterations,
                                    random_state=self.random_state)
 
-            elif self.name == 'KNN':
-                print('TBD')
+#d            elif self.name == 'NEARESTNEIGHBORS':
+#d                clusterer = NearestNeighbors(n_neighbors=self.n_clusters,
+#d                                             metric=self.metric,
+#d                                             weights='distance',
+#d                                             algorithm=self.algorithm,)
 
             else:
                 print("something was not right")
@@ -287,10 +310,11 @@ class cluster_data():
             return None
 
     '''
+        DEPRECATED - because NN or KNN is a classifier and not suitable for clustering
         K nearest neigbour clustering
         Used in STATION FAULT clustering
     '''
-    def get_nn_labels(self,st_flt_list):
+    def get_knn_labels(self,st_flt_list):
 
         from sklearn.neighbors import NearestNeighbors
 
@@ -323,6 +347,7 @@ class cluster_data():
         return sorted_rank
 
     '''
+        DEPRECATED - this function has been moved to and consolidated into the get_clustering() function
         K Means clustering - station-fault distance metric
         Parameters:
             number of clusters = 5 gives optimal Homogeneity, V-measure, and Silhouette Coefficient
