@@ -123,7 +123,8 @@ class station_data():
         '''run through stations to parse code, type, and location'''
         try:
             for each_st in range(len(st_inv_[0].stations)):
-                ''' use lat/lon paris only in and around NZ remove all others '''
+                ''' use lat/lon paris only in and around NZ remove all others
+                    TODO fix this using geographic boundry '''
                 if(st_inv_[0].stations[each_st].latitude < 0 and st_inv_[0].stations[each_st].longitude > 0):
                     each_st_type_dict = st_inv_[0].stations[each_st].get_contents()
                     ''' get the second character representing the station type '''
