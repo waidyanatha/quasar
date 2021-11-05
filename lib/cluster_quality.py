@@ -8,12 +8,18 @@ class cluster_quality_metric():
 
     def __init__(self):
 
+        self._l_reg_methods = ['Absolute','Average','None']
+
         self._max_distance=30.0
         self._minimum_samples=3
         self._algorithm = None
         self._metric = None
         self._cluster_method = None
         self._seed = None
+#d        self._force_minPts = True     # force to remove subgraphs with < minPts
+        self._force_regularity = 'Absolute'     # force Absolute, Average, or None regularity
+        self._reg_tol = 0.99      # threshold to to set the regularity slightly lower than integer
+
 
         pass
 
@@ -239,6 +245,8 @@ class cluster_quality_metric():
             else:
                 raise ValueError('Invalid clustering technique: %s' % _cluster_technique)
 
+            ''' Force Regularity of flag is set'''
+
         except Exception as err:
             print("Class cluster_quality_metric [get_clusters] Error message:", err)
             print(traceback.format_exc())
@@ -266,15 +274,6 @@ class cluster_quality_metric():
 
             ''' returns the simple graph of the clusters and the set dictionary of cluster nodes '''
             G_simple_, l_G_clusters_ = self.__get_graph_n_labels(station_df)
-#d            print([[n,v['label']] for n,v in G_simple_.nodes(data=True) if v['label'] == -1])
-#d            print(list(nx.isolates(G_simple_)))
-#d            print(l_G_clusters_)
-            # Clustered Station Count
-#d            H = G_simple_.copy(as_view=False)
-#d            if nx.isolates(H):
-#d                H.remove_nodes_from(list(nx.isolates(H)))
-#d                print('nodes=',H.number_of_nodes())
-#d            _n_sts_in_clusters = len([v['label'] for n,v in H.nodes(data=True) if v['label'] > -1])
 
             _s_st_types = str(station_df['st_type'].unique())   # Station Types
             _n_tot_num_st = station_df.shape[0]     # Station Quantity
@@ -293,7 +292,6 @@ class cluster_quality_metric():
             _n_sts_in_clusters=0
             for x in __lst_valid_cloud_clust:
                 _n_sts_in_clusters += len(x)
-#d            _n_sts_in_clusters = len([v['label'] for n,v in G_simple_.nodes(data=True) if v['label'] > -1])
 
             _n_noise = station_df.shape[0] - _n_sts_in_clusters   # Unclsutered Noise Count
             _n_avg_deg = sum([v for k, v in G_simple_.degree()
@@ -390,3 +388,125 @@ class cluster_quality_metric():
                     _l_cloud_g_cluster.append(set([st_node]))
 
         return G_simple_, _l_cloud_g_cluster
+
+    ''' get_r_regular_clusters furhter removes those stations and clusters that do not comply with
+        minPts and maxDist constraints
+    '''
+    def get_r_regular_clusters(self,_dict_reg_param,__st_clust_df):
+
+        import sys; sys.path.insert(1, './lib')
+        import pandas as pd
+        import graph_clustering as gc
+        import networkx as nx
+
+        import traceback
+
+        ''' Create subgraphs that comply with r-regularity where r >= minPts
+            Given that the regularity is based on the average degree, change the scaling value 0.95
+            to one that is desired and in the interval (0,1] to set a regularity threshold @_f_reg_thresh
+        '''
+        try:
+            ''' Set the default paramters for the specific r-regularity method '''
+            if 'force_regularity' in _dict_reg_param:
+                if _dict_reg_param["force_regularity"] in self._l_reg_methods:
+                    self._force_regularity=_dict_reg_param["force_regularity"]
+                else:
+                    raise ValueError('force_regularity must be {%s}'
+                                     % str(self._l_reg_methods))
+
+            if 'regularity_threshold' in _dict_reg_param:
+                if isinstance(_dict_reg_param["regularity_threshold"],float) and _dict_reg_param["regularity_threshold"] < 1.0:
+                    self._reg_tol = _dict_reg_param["regularity_threshold"]
+                else:
+                    raise ValueError('regularity_threshold must be %s in invalid an must be in the interval [0,1]'
+                                     % str(_dict_reg_param["regularity_threshold"]))
+            else:
+                print('Unspecified regularity_threshold; using default value %0.2f' % (self._reg_tol))
+
+            _f_reg_thresh = self._reg_tol*(self._minimum_samples - 1)     # value greater than 0 and less than 1.0
+
+            lst_G_simple = []
+            ''' Only plot valid clusters '''
+            no_noise_df = __st_clust_df[__st_clust_df['label']!= -1]
+#            print('%d clusters after removing the noise clusters; i.e. label = -1'
+#                  % len(no_noise_df['label'].unique()))
+
+            ''' I think we don't want to do this anymore '''
+#            for k in no_noise_df['label'].unique():
+#                temp_df = pd.DataFrame([])
+#                temp_df = no_noise_df.loc[lambda no_noise_df: no_noise_df['label'] == k]
+#                if temp_df.shape[0] < int(self._minimum_samples+1):
+#                    no_noise_df = no_noise_df[no_noise_df['label'] != k]
+#            print('%d clusters remaining after removing clusters with minPts < %d+1 for %d-regularity minimum requirement'
+#                  % (len(no_noise_df['label'].unique()),self._minimum_samples,self._minimum_samples))
+
+            dict_feature_params = {"distance_km": self._max_distance,
+                                   "minimum_samples": self._minimum_samples}
+            cls_g_clust = gc.community_detection(**dict_feature_params)
+            G_simple = cls_g_clust.get_simple_graph(no_noise_df)
+            G_simple.remove_nodes_from(list(nx.isolates(G_simple)))
+            if not nx.is_empty(G_simple):
+                lst_G_simple = cls_g_clust.get_list_subgraphs(G_simple)
+#            print('%d simple subgraphs created after removing clusters with isolated nodes' % len(lst_G_simple))
+
+            ''' remove any graphs with zero average degree '''
+            incomplete = True     #flag to start stop while loop
+            while incomplete and self._force_regularity != "None":
+                incomplete = False
+                ''' first remove all subgraphs with zero degree nodes; i.e. singletons '''
+                for G_idx, G in enumerate(lst_G_simple):
+                    if len(G.edges()) == 0:
+                        lst_G_simple.pop(G_idx)
+#                        print('...removed subgraph %d with zero degree' % G_idx)
+                        incomplete = True
+
+                for G_idx, G in enumerate(lst_G_simple):
+                    ''' _min_regularity=True remove subgraphs with low minimum degree '''
+
+                    degree_sequence = sorted([d for n, d in G.degree()], reverse=True)
+                    ''' TODO fix this beacuse average does not reflect the truth if several nodes have a large degree '''
+                    _avg_degree = sum(degree_sequence)/len(degree_sequence)
+                    if self._force_regularity == 'Average' and _avg_degree <= _f_reg_thresh:
+                        try:
+                            lst_G_simple.pop(G_idx)
+#                            print('...removed subgraph %d with average degree %0.02f <= %0.02f tolerated degree'
+                                  % (G_idx, _avg_degree,_f_reg_thresh))
+                            incomplete = True
+                        except Exception as err:
+                            pass
+
+                    elif self._force_regularity == 'Absolute':
+                        H = nx.Graph(G)
+                        remove = [node for node,degree in dict(H.degree()).items() if degree < _f_reg_thresh]
+                        if len(remove) > 0:
+#                            print('...removing nodes %s with degree <= %0.02f' % (remove, _f_reg_thresh))
+                            H.remove_nodes_from(remove)
+                            if H.number_of_nodes() > 0:
+                                lst_G_simple.pop(G_idx)
+                                lst_G_simple.append(H)
+                                print('...replaced subgraph %d with reduced nodes=%d'
+                                      % (G_idx, H.number_of_nodes()))
+                            else:
+#                                print('...removing subgraph %d with %d nodes after node removal'
+                                      % (G_idx, H.number_of_nodes()))
+                                lst_G_simple.pop(G_idx)
+                            incomplete = True
+
+#            print('%d simple subgraphs remaining after validating with parameters:'
+#                  % (len(lst_G_simple)))
+#            print('   degree tolerance of %0.02f and forced regularity set to %s.'
+#                  % (_f_reg_thresh, self._force_regularity))
+
+            ''' Modify the station dataframe to reflect the new noise and cluster labels '''
+            new_st_clust_df_ = __st_clust_df.copy()
+            if len(lst_G_simple) > 0 and self._force_regularity != "None":
+                new_st_clust_df_["label"] = -1
+                for G_idx, G in enumerate(lst_G_simple):
+                    _nodes = sorted([n for n,v in G.nodes(data=True)])
+                    new_st_clust_df_.loc[new_st_clust_df_["st_name"].isin(_nodes),"label"] = G_idx
+
+        except Exception as err:
+            print("Class cluster_quality_metric [get_r_regular_clusters] Error message:", err)
+            print(traceback.format_exc())
+
+        return new_st_clust_df_, lst_G_simple

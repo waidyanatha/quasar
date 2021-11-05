@@ -214,9 +214,7 @@ class community_detection():
 
         station_df.reset_index(drop=True, inplace=True)
         g_simple = nx.Graph(name='All-Stations-Simple-Graph') # Simple graph
-        #clust_st = np.array([x for x in no_noise_st_arr])
-#        clust_st = station_coordinates
-#        dist_arr = haversine_distances(np.radians(clust_st[:,:2]),np.radians(clust_st[:,:2]))
+
         lat = np.array(station_df['st_lat'])
         lon = np.array(station_df['st_lon'])
         st_coords = np.column_stack((lat,lon))
