@@ -9,10 +9,25 @@ class community_detection():
 #    def __init__(self, clustering_name="greedy_modularity_communities", **cluster_params):
     def __init__(self, **feature_params):
 
+        self._cluster_method_name = ['ASYNC-LPA',  # asyn_lpa_communities
+                                     'LPC',        # label_propagation_communities'
+                                     'GREEDY',     # greedy_modularity_communities
+                                     'NAIVE-GREEDY',  #_naive_greedy_modularity_communities'
+                                     'LUKES',         # lukes_partitioning
+                                     'ASYNC-FLUID',   # asyn_fluidc
+                                     'GIRVAN-NEWMAN',  # girvan_newman
+                                ]
+#        self._lst_algo = {"auto", "kmeans","discretize"}
+#        self._lst_metric = ["haversine","euclidean",
+#                            "precomputed","precomputed_nearest_neighbors","nearest_neighbors","rbf"]
+
+
         _default_distance = 30.0
         self.max_distance=_default_distance
 #        self.epsilon=_default_distance/6371.0088
         self.minimum_samples=3
+        self.algorithm='auto'
+        self.metric='haversine'
 
         try:
             if 'distance_km' in feature_params:
@@ -38,16 +53,9 @@ class community_detection():
 
         import traceback
         import numpy as np
+        _s_fn_name = "set_community_detection_params"
 
         _default_distance = 50.0
-        _cluster_method_name = ['ASYNC-LPA',  #asyn_lpa_communities
-                                'LPC',        #label_propagation_communities'
-                                'GREEDY',     #greedy_modularity_communities
-                                'NAIVE-GREEDY',  #_naive_greedy_modularity_communities'
-                                'LUKES',         #lukes_partitioning
-                                'ASYNC-FLUID',   #asyn_fluidc
-                                'GIRVAN-NEWMAN'  #girvan_newman
-                                ]
 
         self.name=clustering_name
 #        self.max_distance=_default_distance
@@ -60,9 +68,9 @@ class community_detection():
 
         try:
             ''' Set the default paramters for the specific clustering method '''
-            if self.name not in _cluster_method_name:
+            if self.name not in self._cluster_method_name:
                 raise ValueError('{0} is an undefined graph clustering_name. Must be {1}'
-                                 .format(self.name,_cluster_method_name))
+                                 .format(self.name,self.self._cluster_method_name))
 
             if 'distance_km' in cluster_params:
                 if isinstance(cluster_params["distance_km"],float) and cluster_params["distance_km"] > 0:
@@ -71,7 +79,7 @@ class community_detection():
                     self.max_distance=cluster_params["distance_km"]
                 else:
                     raise ValueError('distance_km %s must be a float > 0.'
-                                     % str(cluster_params["distance_km"]))
+                                     % (str(cluster_params["distance_km"])))
 
             if 'minimum_samples' in cluster_params:
                 if cluster_params["minimum_samples"] > 0:
@@ -80,7 +88,7 @@ class community_detection():
                     self.minimum_samples=cluster_params["minimum_samples"]
                 else:
                     raise ValueError('minimum_samples %s must be an int > 0.'
-                                     % str(cluster_params["minimum_samples"]))
+                                     % (str(cluster_params["minimum_samples"])))
 
             if 'seed' in cluster_params:
 #                print('checking seed',cluster_params["seed"])
@@ -101,17 +109,31 @@ class community_detection():
                     self.weight=cluster_params["weight"]
                 else:
                     raise ValueError('weight parameter %s must be = {distance}.'
-                                     % str(cluster_params["weight"]))
+                                     % (str(cluster_params["weight"])))
 
             if 'max_iter' in cluster_params:
                 if isinstance(cluster_params["max_iter"],int) and cluster_params["max_iter"] > 0:
                     self.maximum_iterations=cluster_params["max_iter"]
                 else:
                     raise ValueError('maximum iteration %s must be an int > 0.'
-                                     % str(cluster_params["max_iter"]))
+                                     % (str(cluster_params["max_iter"])))
+
+#            if 'algorithm' in cluster_params:
+#                if cluster_params["algorithm"] in self._lst_algo:
+#                    self.algorithm=cluster_params["algorithm"]
+#                else:
+#                    raise ValueError('algorithm {0} is invalid must be {1}. Continue with default value [{2}]'.
+#                                     format(cluster_params["algorithm"],self._lst_algo,self.algorithm))
+
+#            if 'metric' in cluster_params:
+#                if cluster_params["metric"] in self._lst_metric:
+#                    self.metric=cluster_params["metric"]
+#                else:
+#                    raise ValueError('metric {0} is invalid must be {1}. Continue with default value [{2}]'.
+#                                     format(cluster_params["metric"],self._lst_metric,self.metric))
 
         except Exception as err:
-            print("Class community_detection [set_community_detection_params] Error message:", err)
+            print("Class community_detection [%s] Error message: %s" % (_s_fn_name,str(err)))
             print(traceback.format_exc())
 
         return self
@@ -120,6 +142,8 @@ class community_detection():
 
         import networkx as nx
         import networkx.algorithms.community as nx_comm
+
+        g_communities_ = []
 
         try:
             ''' sample the graph '''
@@ -175,11 +199,12 @@ class community_detection():
             if isinstance(g_communities_, list): #len(g_communities_)>0
                 g_simple_ = self.set_graph_cluster_labels(g_simple_, g_communities_)
 
-            return g_simple_, g_communities_
+#d            return g_simple_, g_communities_
 
         except Exception as err:
             print("Class community_detection [get_communities] Error message:", err)
 
+        return g_simple_, g_communities_
 
     def set_graph_cluster_labels(self, _g_simple, _g_communities):
 

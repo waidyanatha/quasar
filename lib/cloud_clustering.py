@@ -20,26 +20,36 @@ class cluster_data():
                                 'AGGLOMERATIVE',
                                 'BIRCH',
                                 'KMEANS',
+                                'SPECTRAL',    # spectral clustering with roots in graph theory
                                 'NEARESTNEIGHBORS',
                                 'DENCLUE']
-        _lst_metric = ['haversine','euclidean','manhattan','minkowski','precomputed']
+        ''' TODO change to self. '''
+        _lst_metric = ["haversine","euclidean",
+                       "manhattan","minkowski",
+                       "precomputed",
+                       "precomputed_nearest_neighbors",
+                       "nearest_neighbors",
+                       "rbf"]
 
         ''' algorithms that can be used along with DBSCAN and HDBSCAN
             algorithm = 'auto' for DBSCAN and algorithm = 'best' for HDBSCAN selects the optimal
             algorithm based on the nature of the data
         '''
-        _lst_algo = ['auto',          # Automatically select best algorith for DBSCAN and OPTICS
-                     'ball_tree',
-                     'kd_tree',
-                     'brute',
-                     'best',          # Automatically select best algorithm for HDBSCAN
-                     'generic',
-                     'prims_kdtree',
-                     'prims_balltree',
-                     'boruvka_kdtree',
-                     'boruvka_balltree'
+        ''' @TODO change to self. '''
+        _lst_algo = ["auto",          # Automatically select best algorith for DBSCAN and OPTICS
+                     "ball_tree",
+                     "kd_tree",
+                     "brute",
+                     "best",          # Automatically select best algorithm for HDBSCAN
+                     "generic",
+                     "prims_kdtree",
+                     "prims_balltree",
+                     "boruvka_kdtree",
+                     "boruvka_balltree",
+                     "kmeans",
+                     "discretize"
                     ]
-        _lst_clust_method = ['xi','dbscan','eom','leaf']
+        _lst_clust_method = ["xi","dbscan","eom","leaf","arpack", "lobpcg", "amg"]
 
         self.name = clustering_name
         self.max_distance=_default_distance
@@ -47,14 +57,14 @@ class cluster_data():
         self.minimum_samples = 3
         self.minimum_cluster_size = 1
         self.cluster_std=0.4
-        self.n_clusters=5
+        self.n_clusters=8
         self.random_state=0
         self.maximum_iterations=200
         self.centroid_init=5
         self.algorithm='ball_tree'
         self.metric='haversine'
         self.cluster_method='xi'
-        self.fit_predict = True
+        self.fit_predict = False
         self.gen_min_span_tree=True
         self.prediction_data=True
 
@@ -98,7 +108,6 @@ class cluster_data():
                 if isinstance(cluster_params["random_state"],int) and cluster_params["random_state"] > 0:
                     self.random_state=cluster_params["random_state"]
                 else:
-                    print('random_state')
                     raise ValueError('minimum_samples %s must be an int > 0.'
                                      % str(cluster_params["random_state"]))
 
@@ -122,6 +131,7 @@ class cluster_data():
                 else:
                     raise ValueError('cluster_method {0} is invalid must be {1}. Continue with default value [{2}]'.
                                      format(cluster_params["cluster_method"],_lst_clust_method,self.cluster_method))
+
             if 'n_clusters' in cluster_params:
                 if isinstance(cluster_params["n_clusters"],int) and cluster_params["n_clusters"] > 0:
                     self.n_clusters=cluster_params["n_clusters"]
@@ -150,9 +160,10 @@ class cluster_data():
         import traceback
 
         import numpy as np
-        from sklearn.cluster import DBSCAN,KMeans,AffinityPropagation,OPTICS,MeanShift,AgglomerativeClustering,Birch
+        from sklearn.cluster import DBSCAN,AffinityPropagation,OPTICS,MeanShift,AgglomerativeClustering,Birch
+        from sklearn.cluster import KMeans,SpectralClustering
         from sklearn.neighbors import NearestNeighbors
-        import hdbscan
+        import hdbscan, pyamg
 #        import sklearn.utils
         from sklearn.preprocessing import StandardScaler
         from sklearn.datasets import make_blobs
@@ -256,10 +267,25 @@ class cluster_data():
                     random_state=5 (Determines random number generation for centroid initialization)
                 '''
                 clusterer = KMeans(init='k-means++',
-                                   n_clusters=self.n_clusters,
+                                   n_clusters=self.n_clusters,       # default=8
                                    n_init=self.centroid_init,
-                                   max_iter=self.maximum_iterations,
-                                   random_state=self.random_state)
+                                   max_iter=self.maximum_iterations, # default=300
+                                   random_state=self.random_state)   # default=5
+
+            elif self.name == 'SPECTRAL':
+                clusterer = SpectralClustering(assign_labels=self.algorithm,     # {‘kmeans’, ‘discretize’}, default=’kmeans’
+                                               random_state=self.random_state,   # default: 0
+                                               n_clusters=self.n_clusters,       # default=8
+                                               # {'nearest_neighbors','rbf','precomputed','precomputed_nearest_neighbors'}
+                                               affinity=self.metric,
+                                               n_neighbors=self.minimum_samples, # Number of neighbors to use; default=10
+                                               eigen_solver=self.cluster_method  # {‘arpack’, ‘lobpcg’, ‘amg’}
+                                              )
+                if self.metric in ['precomputed','precomputed_nearest_neighbors']:
+                    lat = np.array(st_arr[:,0])
+                    lon = np.array(st_arr[:,1])
+                    st_coords = np.column_stack((lat,lon))
+                    st_arr = haversine_distances(np.radians(st_coords),np.radians(st_coords))
 
 #d            elif self.name == 'NEARESTNEIGHBORS':
 #d                clusterer = NearestNeighbors(n_neighbors=self.n_clusters,
@@ -268,7 +294,7 @@ class cluster_data():
 #d                                             algorithm=self.algorithm,)
 
             else:
-                print("something was not right")
+                print("Class cluster_data [get_clusters] something was not right")
 
             X, _labels_true = make_blobs(n_samples=len(st_arr),
                                         centers=st_arr,
