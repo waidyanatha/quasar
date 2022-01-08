@@ -295,9 +295,18 @@ class cluster_quality_metric():
                 _n_sts_in_clusters += len(x)
 
             _n_noise = station_df.shape[0] - _n_sts_in_clusters   # Unclsutered Noise Count
-            _n_avg_deg = sum([v for k, v in G_simple_.degree()
-                              if G_simple_.nodes[k]["label"] > -1])/_n_sts_in_clusters # Average Node Degree
-
+            _n_avg_deg = sum([d for n, d in G_simple_.degree()
+                              if G_simple_.nodes[n]["label"] > -1])/_n_sts_in_clusters # Average Node Degree
+            ''' Compute the accuracy of r-regularity constraint on the individual clusters by considering the
+                systematic error that is a reproducible inaccuracy consistent for the same clustering strategy.
+                For such we apply the weighted mean absolute error to estimate the deviation from the expected degree.
+            '''
+            _l_deg_diff = [_n_min_pts-1-d
+                           for n, d in G_simple_.degree()
+                           if (d < (_n_min_pts-1) and G_simple_.nodes[n]["label"] > -1)]
+            _deg_mean_abs_err=0
+            if len(_l_deg_diff) > 0:
+                _deg_mean_abs_err = sum(_l_deg_diff)/len(_l_deg_diff)
             ''' prepare valid stations for measuring the quality'''
             lst_st = list(nx.get_node_attributes(G_simple_,'pos').values())
             lst_lbl = list(nx.get_node_attributes(G_simple_,'label').values())
@@ -342,6 +351,7 @@ class cluster_quality_metric():
                 'Clustered Station Count': _n_sts_in_clusters,
                 'Unclsutered Noise Count': _n_noise,
                 'Average Node Degree': _n_avg_deg,
+                'Invalid Degree Mean Absolute Error': _deg_mean_abs_err,
                 'Silhouette Coefficient': _f_silhouette,
                 'Calinski Harabaz score': _f_cal_har,
                 'Davies Bouldin score': _f_dav_bould,
@@ -472,9 +482,10 @@ class cluster_quality_metric():
                     elif self._force_regularity == 'Absolute':
                         ''' Absolute regularity function forces strict minimal regularity '''
                         H = nx.Graph(G)
-                        remove = [node for node,degree in dict(H.degree()).items() if degree < _f_reg_thresh]
+                        remove = [node for node,degree in dict(H.degree()).items()
+                                  if int(degree) < int(self._minimum_samples-1)]
                         if len(remove) > 0:
-#                            print('...removing nodes %s with degree <= %0.02f' % (remove, _f_reg_thresh))
+#                            print('...removing nodes %s with degree < %d' % (remove, int(self._minimum_samples)))
                             H.remove_nodes_from(remove)
                             if H.number_of_nodes() > 0:
                                 lst_G_simple.pop(G_idx)
@@ -482,8 +493,8 @@ class cluster_quality_metric():
 #                                print('...replaced subgraph %d with reduced nodes=%d'
 #                                      % (G_idx, H.number_of_nodes()))
                             else:
-#                                print('...removing subgraph %d with %d nodes after node removal'
-#                                      % (G_idx, H.number_of_nodes()))
+                                print('...removing subgraph %d with %d nodes after node removal'
+                                      % (G_idx, H.number_of_nodes()))
                                 lst_G_simple.pop(G_idx)
                             incomplete = True
                     elif self._force_regularity == 'minPoints':
