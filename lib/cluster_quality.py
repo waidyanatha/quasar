@@ -309,15 +309,15 @@ class cluster_quality_metric():
 #                H = nx.Graph(G_simple_)     # cannot use l_G_clusters_ because it is a set and not a set of graphs
                 H.remove_nodes_from(list(nx.isolates(H)))
                 H.remove_nodes_from([n for n,v in H.nodes(data=True) if v["label"]==-1])
-                print("H degree:",sorted([d for n,d in H.degree()]))
+#                print("H degree:",sorted([d for n,d in H.degree()]))
                 _l_deg_diff = []
                 if H.number_of_nodes() > 0:
                     _l_deg_diff = [_n_min_pts-1-d for n, d in H.degree()
                                    if (int(d) < int(_n_min_pts-1) and H.nodes[n]["label"] > -1)]
                 if len(_l_deg_diff) > 0:
-                    print("\ndegree mean absolute error")
-                    print(_l_deg_diff)
-                    print(sorted([d for n,d in H.degree()]))
+#                    print("\ndegree mean absolute error")
+#                    print(_l_deg_diff)
+#                    print(sorted([d for n,d in H.degree()]))
                     _deg_mean_abs_err += sum(_l_deg_diff)/len(_l_deg_diff)
                     num_clust += 1
             if num_clust > 0:
