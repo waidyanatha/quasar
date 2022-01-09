@@ -255,7 +255,7 @@ class cluster_quality_metric():
         return station_df
 
     ''' Get all quality measures and other parameters for the dataframe with appropriate cluster labels '''
-    def get_quality_metrics(self, station_df):
+    def get_quality_metrics(self, station_df,lst_graphs):
 
         import dunn as di
         from sklearn import metrics
@@ -297,44 +297,51 @@ class cluster_quality_metric():
             _n_noise = station_df.shape[0] - _n_sts_in_clusters   # Unclsutered Noise Count
             _n_avg_deg = sum([d for n, d in G_simple_.degree()
                               if G_simple_.nodes[n]["label"] > -1])/_n_sts_in_clusters # Average Node Degree
+
             ''' Compute the accuracy of r-regularity constraint on the individual clusters by considering the
                 systematic error that is a reproducible inaccuracy consistent for the same clustering strategy.
                 For such we apply the weighted mean absolute error to estimate the deviation from the expected degree.
             '''
-            _l_deg_diff = [_n_min_pts-1-d
-                           for n, d in G_simple_.degree()
-                           if (d < (_n_min_pts-1) and G_simple_.nodes[n]["label"] > -1)]
             _deg_mean_abs_err=0
-            if len(_l_deg_diff) > 0:
-                _deg_mean_abs_err = sum(_l_deg_diff)/len(_l_deg_diff)
+            for H in lst_graphs:
+                num_clust = 0
+                H = nx.Graph(H)
+#                H = nx.Graph(G_simple_)     # cannot use l_G_clusters_ because it is a set and not a set of graphs
+                H.remove_nodes_from(list(nx.isolates(H)))
+                H.remove_nodes_from([n for n,v in H.nodes(data=True) if v["label"]==-1])
+                print("H degree:",sorted([d for n,d in H.degree()]))
+                _l_deg_diff = []
+                if H.number_of_nodes() > 0:
+                    _l_deg_diff = [_n_min_pts-1-d for n, d in H.degree()
+                                   if (int(d) < int(_n_min_pts-1) and H.nodes[n]["label"] > -1)]
+                if len(_l_deg_diff) > 0:
+                    print("\ndegree mean absolute error")
+                    print(_l_deg_diff)
+                    print(sorted([d for n,d in H.degree()]))
+                    _deg_mean_abs_err += sum(_l_deg_diff)/len(_l_deg_diff)
+                    num_clust += 1
+            if num_clust > 0:
+                _deg_mean_abs_err = _deg_mean_abs_err/num_clust
+
             ''' prepare valid stations for measuring the quality'''
             lst_st = list(nx.get_node_attributes(G_simple_,'pos').values())
             lst_lbl = list(nx.get_node_attributes(G_simple_,'label').values())
 
             _f_silhouette = metrics.silhouette_score(lst_st, lst_lbl,
                                                      metric='haversine')   # Silhouette Coefficient
-#            _f_silhouette = metrics.silhouette_score(station_df[['st_lat','st_lon']].to_numpy(),
-#                                                     list(station_df['label']),
-#                                                     metric='haversine')               # Silhouette Coefficient
             _f_cal_har = metrics.calinski_harabasz_score(lst_st, lst_lbl)  # Calinski Harabaz score
-#            _f_cal_har = metrics.calinski_harabasz_score(station_df[['st_lat','st_lon']].to_numpy(),
-#                                                         list(station_df['label']))    # Calinski Harabaz score
             _f_dav_bould = metrics.davies_bouldin_score(lst_st, lst_lbl)   # Davies Bouldin score
-#            _f_dav_bould = metrics.davies_bouldin_score(station_df[['st_lat','st_lon']].to_numpy(),
-#                                                        list(station_df['label']))     # Davies Bouldin score
             _f_dunn = di.dunn_fast(lst_st, lst_lbl)                        # Dunn Index
-#            _f_dunn = di.dunn_fast(station_df[['st_lat','st_lon']].to_numpy(),
-#                                   list(station_df['label']))                           # Dunn Index
-            _f_modul = nx_comm.modularity(G_simple_,l_G_clusters_)           # Modularity
+            _f_modul = nx_comm.modularity(G_simple_,l_G_clusters_)         # Modularity
 
             try:
                 l_conductance = list(nx.conductance(G_simple_, cluster_i, weight='distance')
                                      for cluster_i in __lst_valid_cloud_clust)
-                _f_conduct = sum(l_conductance)/len(l_conductance)                      # Conductance Average
+                _f_conduct = sum(l_conductance)/len(l_conductance)         # Conductance Average
             except Exception:
                 _f_conduct = 0
-            _f_cover = nx_comm.coverage(G_simple_, l_G_clusters_)            # Coverage Score
-            _f_perform = nx_comm.performance(G_simple_, l_G_clusters_)       # Performance Score
+            _f_cover = nx_comm.coverage(G_simple_, l_G_clusters_)          # Coverage Score
+            _f_perform = nx_comm.performance(G_simple_, l_G_clusters_)     # Performance Score
 
             dict_quality_mesrs = {
                 'Station Types': _s_st_types,
@@ -473,8 +480,8 @@ class cluster_quality_metric():
                         ''' try to pop if G_idx fails pass and will catch in the next round '''
                         try:
                             lst_G_simple.pop(G_idx)
-#                            print('...removed subgraph %d with average degree %0.02f <= %0.02f tolerated degree'
-#                                  % (G_idx, _avg_degree,_f_reg_thresh))
+#p                            print('...removed subgraph %d with average degree %0.02f <= %0.02f tolerated degree'
+#p                                  % (G_idx, _avg_degree,_f_reg_thresh))
                             incomplete = True
                         except Exception as err:
                             pass
@@ -482,46 +489,35 @@ class cluster_quality_metric():
                     elif self._force_regularity == 'Absolute':
                         ''' Absolute regularity function forces strict minimal regularity '''
                         H = nx.Graph(G)
-                        remove = [node for node,degree in dict(H.degree()).items()
-                                  if int(degree) < int(self._minimum_samples-1)]
+                        remove = [n for n,d in dict(H.degree()).items()
+                                  if int(d) < int(self._minimum_samples-1)]
                         if len(remove) > 0:
-#                            print('...removing nodes %s with degree < %d' % (remove, int(self._minimum_samples)))
+#p                            print('...removing nodes %s with degree < %d' % (remove, int(self._minimum_samples)))
                             H.remove_nodes_from(remove)
                             if H.number_of_nodes() > 0:
                                 lst_G_simple.pop(G_idx)
                                 lst_G_simple.append(H)
-#                                print('...replaced subgraph %d with reduced nodes=%d'
-#                                      % (G_idx, H.number_of_nodes()))
+#p                                print('...replaced subgraph %d with reduced nodes=%d'
+#p                                      % (G_idx, H.number_of_nodes()))
                             else:
-                                print('...removing subgraph %d with %d nodes after node removal'
-                                      % (G_idx, H.number_of_nodes()))
+#p                                print('...removing subgraph %d with %d nodes after node removal'
+#p                                      % (G_idx, H.number_of_nodes()))
                                 lst_G_simple.pop(G_idx)
                             incomplete = True
                     elif self._force_regularity == 'minPoints':
                         ''' minPoints function remove clusters with size < minimum_samples  '''
                         if G.number_of_nodes() < self._minimum_samples:
                             lst_G_simple.pop(G_idx)
-#d            for k in no_noise_df['label'].unique():
-#d                temp_df = pd.DataFrame([])
-#d                temp_df = no_noise_df.loc[lambda no_noise_df: no_noise_df['label'] == k]
-#d                if temp_df.shape[0] < int(self._minimum_samples+1):
-#d                    no_noise_df = no_noise_df[no_noise_df['label'] != k]
-#d            print('%d clusters remaining after removing clusters with minPts < %d+1 for %d-regularity minimum requirement'
-#d                  % (len(no_noise_df['label'].unique()),self._minimum_samples,self._minimum_samples))
-
-
-#            print('%d simple subgraphs remaining after validating with parameters:'
-#                  % (len(lst_G_simple)))
-#            print('   degree tolerance of %0.02f and forced regularity set to %s.'
-#                  % (_f_reg_thresh, self._force_regularity))
 
             ''' Modify the station dataframe to reflect the new noise and cluster labels '''
             new_st_clust_df_ = __st_clust_df.copy()
-#d            if len(lst_G_simple) > 0 and self._force_regularity != "None":
+
             if self._force_regularity != "None":
                 new_st_clust_df_["label"] = -1
                 if len(lst_G_simple) > 0:
                     for G_idx, G in enumerate(lst_G_simple):
+#                        print(self._minimum_samples)
+#                        print("reg fn",[d for n,d in G.degree()])
                         _nodes = sorted([n for n,v in G.nodes(data=True)])
                         new_st_clust_df_.loc[new_st_clust_df_["st_name"].isin(_nodes),"label"] = G_idx
 
