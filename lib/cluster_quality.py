@@ -302,15 +302,15 @@ class cluster_quality_metric():
                 systematic error that is a reproducible inaccuracy consistent for the same clustering strategy.
                 For such we apply the weighted mean absolute error to estimate the deviation from the expected degree.
             '''
-            _deg_mean_abs_err=0
+            sum_deg_abs_err=0
+            _deg_wmae=0
+            _deg_err_st_count=0
             for H in lst_graphs:
-                num_clust = 0
                 H = nx.Graph(H)
-#                H = nx.Graph(G_simple_)     # cannot use l_G_clusters_ because it is a set and not a set of graphs
                 H.remove_nodes_from(list(nx.isolates(H)))
                 H.remove_nodes_from([n for n,v in H.nodes(data=True) if v["label"]==-1])
-#                print("H degree:",sorted([d for n,d in H.degree()]))
-                _l_deg_diff = []
+                H_deg_abs_err=0
+                _l_deg_diff=[]
                 if H.number_of_nodes() > 0:
                     _l_deg_diff = [_n_min_pts-1-d for n, d in H.degree()
                                    if (int(d) < int(_n_min_pts-1) and H.nodes[n]["label"] > -1)]
@@ -318,10 +318,12 @@ class cluster_quality_metric():
 #                    print("\ndegree mean absolute error")
 #                    print(_l_deg_diff)
 #                    print(sorted([d for n,d in H.degree()]))
-                    _deg_mean_abs_err += sum(_l_deg_diff)/len(_l_deg_diff)
-                    num_clust += 1
-            if num_clust > 0:
-                _deg_mean_abs_err = _deg_mean_abs_err/num_clust
+#d                    _deg_mean_abs_err = sum(_l_deg_diff)/len(_l_deg_diff)
+                    sum_deg_abs_err += sum(_l_deg_diff)
+                    _deg_err_st_count += len(_l_deg_diff)
+            if _deg_err_st_count > 0:
+                _deg_wmae = sum_deg_abs_err/_deg_err_st_count
+#                print("_deg_wmae", _deg_wmae,_deg_err_st_count)
 
             ''' prepare valid stations for measuring the quality'''
             lst_st = list(nx.get_node_attributes(G_simple_,'pos').values())
@@ -357,8 +359,9 @@ class cluster_quality_metric():
                 'Valid Cluster Count': _n_valid_clust,
                 'Clustered Station Count': _n_sts_in_clusters,
                 'Unclsutered Noise Count': _n_noise,
-                'Average Node Degree': _n_avg_deg,
-                'Invalid Degree Mean Absolute Error': _deg_mean_abs_err,
+                'Average Station Degree': _n_avg_deg,
+                'Degree Weighted Mean Absolute Error': _deg_wmae,
+                'Degree Error Station Count': _deg_err_st_count,
                 'Silhouette Coefficient': _f_silhouette,
                 'Calinski Harabaz score': _f_cal_har,
                 'Davies Bouldin score': _f_dav_bould,
