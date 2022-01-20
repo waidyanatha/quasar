@@ -305,6 +305,7 @@ class cluster_quality_metric():
             sum_deg_abs_err=0
             _deg_wmae=0
             _deg_err_st_count=0
+#p            print("\nclusters:",len(lst_graphs))
             for H in lst_graphs:
                 H = nx.Graph(H)
                 H.remove_nodes_from(list(nx.isolates(H)))
@@ -315,15 +316,15 @@ class cluster_quality_metric():
                     _l_deg_diff = [_n_min_pts-1-d for n, d in H.degree()
                                    if (int(d) < int(_n_min_pts-1) and H.nodes[n]["label"] > -1)]
                 if len(_l_deg_diff) > 0:
-#                    print("\ndegree mean absolute error")
-#                    print(_l_deg_diff)
-#                    print(sorted([d for n,d in H.degree()]))
-#d                    _deg_mean_abs_err = sum(_l_deg_diff)/len(_l_deg_diff)
+#p                    print("\ndegree mean absolute error")
+#p                    print("minPts:",_n_min_pts)
+#p                    print("list deg diff:",_l_deg_diff)
+#p                    print("graph nodes:",sorted([d for n,d in H.degree()]))
                     sum_deg_abs_err += sum(_l_deg_diff)
                     _deg_err_st_count += len(_l_deg_diff)
             if _deg_err_st_count > 0:
                 _deg_wmae = sum_deg_abs_err/_deg_err_st_count
-#                print("_deg_wmae", _deg_wmae,_deg_err_st_count)
+#p                print("_deg_wmae", _deg_wmae,_deg_err_st_count)
 
             ''' prepare valid stations for measuring the quality'''
             lst_st = list(nx.get_node_attributes(G_simple_,'pos').values())
@@ -439,7 +440,7 @@ class cluster_quality_metric():
                 if isinstance(_dict_reg_param["tolerance_scaler"],float) and _dict_reg_param["tolerance_scaler"] < 1.0:
                     self._reg_tol_scaler = _dict_reg_param["tolerance_scaler"]
                 else:
-                    raise ValueError('regularity_threshold must be %s in invalid an must be in the interval [0,1]'
+                    raise ValueError('regularity_threshold must be %s in invalid and must be in the interval [0,1]'
                                      % str(_dict_reg_param["tolerance_scaler"]))
 #d            else:
 #d                print('Unspecified regularity_threshold; using default value %0.2f' % (self._reg_tol_scaler))
@@ -456,12 +457,15 @@ class cluster_quality_metric():
 
             dict_feature_params = {"distance_km": self._max_distance,
                                    "minimum_samples": self._minimum_samples}
+#p            print("Regularity processing maxDist < %0.2f and minPts > %d"
+#p                  % (dict_feature_params["distance_km"],
+#p                     dict_feature_params["minimum_samples"]-1))
             cls_g_clust = gc.community_detection(**dict_feature_params)
             G_simple = cls_g_clust.get_simple_graph(no_noise_df)
             G_simple.remove_nodes_from(list(nx.isolates(G_simple)))
             if not nx.is_empty(G_simple):
                 lst_G_simple = cls_g_clust.get_list_subgraphs(G_simple)
-#            print('%d simple subgraphs created after removing clusters with isolated nodes' % len(lst_G_simple))
+#p            print('\n%d simple subgraphs created after removing clusters with isolated nodes' % len(lst_G_simple))
 
             ''' remove any graphs with zero average degree '''
             incomplete = True     #flag to start stop while loop
@@ -471,10 +475,11 @@ class cluster_quality_metric():
                 for G_idx, G in enumerate(lst_G_simple):
                     if len(G.edges()) == 0:
                         lst_G_simple.pop(G_idx)
-#                        print('...removed subgraph %d with zero degree' % G_idx)
+#p                        print('...removed subgraph %d with zero degree' % G_idx)
                         incomplete = True
 
                 for G_idx, G in enumerate(lst_G_simple):
+#p                    print("\nGraph degree:",G.degree())
 
                     ''' Average regularity function '''
                     degree_sequence = sorted([d for n, d in G.degree()], reverse=True)
@@ -492,10 +497,12 @@ class cluster_quality_metric():
                     elif self._force_regularity == 'Absolute':
                         ''' Absolute regularity function forces strict minimal regularity '''
                         H = nx.Graph(G)
-                        remove = [n for n,d in dict(H.degree()).items()
-                                  if int(d) < int(self._minimum_samples-1)]
+#                        remove = [n for n,d in dict(H.degree()).items()
+#                                  if int(d) < int(self._minimum_samples-1)]
+                        remove = [n for n,d in H.degree()
+                                  if int(d) < int(self._minimum_samples)]
                         if len(remove) > 0:
-#p                            print('...removing nodes %s with degree < %d' % (remove, int(self._minimum_samples)))
+#p                            print('...removing nodes %s with degree < %d' % (remove, int(self._minimum_samples-1)))
                             H.remove_nodes_from(remove)
                             if H.number_of_nodes() > 0:
                                 lst_G_simple.pop(G_idx)
