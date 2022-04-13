@@ -323,7 +323,7 @@ class cluster_quality_metric():
                     sum_deg_abs_err += sum(_l_deg_diff)
                     _deg_err_st_count += len(_l_deg_diff)
             if _deg_err_st_count > 0:
-                _deg_wmae = sum_deg_abs_err/_deg_err_st_count
+                _deg_wmae = sum_deg_abs_err/(_deg_err_st_count*(_n_min_pts-1))
 #p                print("_deg_wmae", _deg_wmae,_deg_err_st_count)
 
             ''' prepare valid stations for measuring the quality'''
